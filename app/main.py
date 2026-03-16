@@ -1,4 +1,6 @@
 import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -7,6 +9,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
+
+# MediaPipe is not thread-safe — one worker ensures sequential processing
+# while freeing the async event loop between frames.
+_frame_executor = ThreadPoolExecutor(max_workers=1)
 
 from .modules.camera import processor
 from .modules.recorder import RecordingSession, DATA_PATH, ensure_csv
@@ -51,10 +57,12 @@ async def index():
 @app.websocket("/ws/camera")
 async def camera_ws(websocket: WebSocket):
     await websocket.accept()
+    loop = asyncio.get_event_loop()
     try:
         while True:
             raw_jpeg = await websocket.receive_bytes()
-            annotated_jpeg = processor.process(raw_jpeg)
+            # Run blocking MediaPipe + TF work in a thread so the event loop stays free
+            annotated_jpeg = await loop.run_in_executor(_frame_executor, processor.process, raw_jpeg)
             await websocket.send_bytes(annotated_jpeg)
     except WebSocketDisconnect:
         pass
