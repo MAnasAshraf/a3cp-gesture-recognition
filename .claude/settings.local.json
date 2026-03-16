@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/opt/homebrew/bin/python3.11 --version && /opt/homebrew/bin/python3.11 -m venv /Users/ma3289/Desktop/a3cp/venv && echo \"venv created OK\")",
+      "Bash(/Users/ma3289/Desktop/a3cp/venv/bin/pip install:*)"
+    ]
+  }
+}

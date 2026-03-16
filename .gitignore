@@ -1,0 +1,31 @@
+# Virtual environment
+venv/
+
+# Training data and models (large files)
+data/gestures.csv
+data/models/*.h5
+data/models/*.pkl
+
+# Keep the data directory structure
+!data/.gitkeep
+!data/models/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>a3cp | The Open University</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg:        #FFFFFF;
+      --bg2:       #F4F6FB;
+      --bg3:       #E8EDF7;
+      --card:      #FFFFFF;
+      --border:    #D0D8EE;
+      --text:      #060645;
+      --text2:     #3A4070;
+      --text3:     #6B7280;
+      --primary:   #1C46C0;
+      --primary2:  #060645;
+      --emerald:   #059669;
+      --red:       #DC2626;
+      --yellow:    #D97706;
+      --radius:    12px;
+      --shadow:    0 2px 12px rgba(6,6,69,0.10);
+      --sidebar-w: 260px;
+      --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    #app { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: #060645;
+      border-right: none;
+      display: flex; flex-direction: column;
+      padding: 28px 0;
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+      transition: transform var(--transition);
+      box-shadow: 2px 0 16px rgba(6,6,69,0.15);
+    }
+
+    .sidebar-logo {
+      padding: 0 24px 32px;
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .logo-icon { display: none; }
+
+    .logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+    .logo-text span { color: rgba(255,255,255,0.7); }
+
+    .nav-section { padding: 0 12px; flex: 1; }
+    .nav-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: rgba(255,255,255,0.4); padding: 0 12px 8px;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 20px; border-radius: 8px; margin: 2px 12px;
+      cursor: pointer; color: rgba(255,255,255,0.75);
+      font-weight: 600; font-size: 0.9rem;
+      transition: all 0.2s; position: relative;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: transparent; }
+
+    .nav-item.active { background: #1C46C0; color: #fff; border-color: transparent; }
+
+    .nav-item.active::before { display: none; }
+
+    .nav-icon { font-size: 18px; flex-shrink: 0; }
+
+    .sidebar-status {
+      padding: 20px 24px 0;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin-top: 16px;
+    }
+
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--emerald); margin-right: 8px;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .status-dot.offline { background: var(--red); animation: none; }
+
+    @keyframes pulse-dot {
+      0%,100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.4); }
+      50%      { box-shadow: 0 0 0 6px rgba(5,150,105,0); }
+    }
+
+    .status-text { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+    /* ── Main content ── */
+    #main {
+      flex: 1;
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* Top bar */
+    #topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      height: 64px;
+      border-bottom: 2px solid #060645;
+      background: #FFFFFF;
+      position: sticky; top: 0; z-index: 50;
+    }
+
+    #topbar-title { font-size: 20px; font-weight: 700; color: var(--text); }
+    #topbar-subtitle { font-size: 13px; color: var(--text3); margin-top: 2px; }
+
+    .topbar-actions { display: flex; gap: 10px; }
+
+    /* ── Content pages ── */
+    .page { display: none; padding: 40px; animation: fadeIn 0.4s ease; }
+    .page.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 20px rgba(6,6,69,0.15);
+    }
+
+    .card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .card-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .card-body { padding: 24px; }
+
+    /* ── Grid layouts ── */
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; }
+    .grid-6-4 { display: grid; grid-template-columns: 6fr 4fr; gap: 24px; }
+
+    /* ── Stat cards ── */
+    .stat-card {
+      padding: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s;
+      position: relative; overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #1C46C0, #060645);
+      opacity: 0; transition: opacity var(--transition);
+    }
+
+    .stat-card:hover { box-shadow: 0 4px 20px rgba(6,6,69,0.15); }
+    .stat-card:hover::after { opacity: 1; }
+
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 16px;
+    }
+
+    .stat-icon.indigo { background: rgba(28,70,192,0.12); }
+    .stat-icon.cyan   { background: rgba(28,70,192,0.08); }
+    .stat-icon.emerald{ background: rgba(5,150,105,0.12); }
+
+    .stat-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+    .stat-label { font-size: 13px; color: var(--text3); margin-top: 4px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 20px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      border: none; transition: all var(--transition);
+      text-decoration: none; letter-spacing: 0.2px;
+    }
+
+    .btn-primary {
+      background: #1C46C0;
+      color: white;
+      box-shadow: 0 4px 16px rgba(28,70,192,0.25);
+    }
+    .btn-primary:hover {
+      background: #060645;
+      box-shadow: 0 8px 24px rgba(6,6,69,0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-gradient {
+      background: #1C46C0;
+      color: #fff;
+      border: none;
+      font-size: 15px; padding: 14px 28px;
+    }
+    .btn-gradient:hover {
+      background: #060645;
+      transform: translateY(-2px);
+    }
+    .btn-gradient:active { transform: translateY(0); }
+    .btn-gradient:disabled {
+      opacity: 0.5; cursor: not-allowed; transform: none;
+      box-shadow: none;
+    }
+
+    .btn-danger {
+      background: rgba(220,38,38,0.1);
+      color: var(--red); border: 1px solid rgba(220,38,38,0.3);
+    }
+    .btn-danger:hover {
+      background: rgba(220,38,38,0.2);
+      box-shadow: 0 4px 16px rgba(220,38,38,0.2);
+    }
+
+    .btn-ghost {
+      background: #fff; color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg2); color: var(--text); }
+
+    .btn-emerald {
+      background: var(--emerald);
+      color: white; box-shadow: 0 4px 16px rgba(5,150,105,0.25);
+      font-size: 15px; padding: 14px 28px;
+    }
+    .btn-emerald:hover { background: #047857; box-shadow: 0 8px 24px rgba(5,150,105,0.35); transform: translateY(-1px); }
+    .btn-emerald:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-lg { font-size: 16px; padding: 16px 32px; border-radius: 14px; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; letter-spacing: 0.3px; }
+    .form-input {
+      width: 100%; padding: 13px 16px;
+      background: #fff; border: 1.5px solid #D0D8EE;
+      border-radius: 8px; color: #060645;
+      font-family: inherit; font-size: 15px;
+      transition: all var(--transition); outline: none;
+    }
+    .form-input:focus { border-color: #1C46C0; background: #fff; box-shadow: 0 0 0 3px rgba(28,70,192,0.15); }
+    .form-input::placeholder { color: var(--text3); }
+
+    input[type="text"], input[type="number"], select {
+      background: #fff;
+      border: 1.5px solid #D0D8EE;
+      color: #060645;
+      border-radius: 8px;
+    }
+    input:focus, select:focus {
+      border-color: #1C46C0;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(28,70,192,0.15);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 6px;
+      background: #D0D8EE; border-radius: 3px; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: #1C46C0;
+      box-shadow: 0 2px 8px rgba(28,70,192,0.35);
+      cursor: pointer;
+    }
+    input[type="range"]:focus { outline: none; }
+
+    /* ── Progress bar ── */
+    .progress-track {
+      width: 100%; height: 8px; background: #E8EDF7;
+      border-radius: 4px; overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, #1C46C0, #060645);
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+      position: relative;
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(100%); }
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-blue    { background: #DBEAFE; color: #1E40AF; }
+    .badge-green   { background: #D1FAE5; color: #065F46; }
+    .badge-red     { background: #FEE2E2; color: #991B1B; }
+    .badge-amber   { background: #FEF3C7; color: #92400E; }
+    .badge-muted   { background: #F4F6FB; color: var(--text2); border: 1px solid var(--border); }
+
+    /* ── LIVE indicator ── */
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; background: rgba(220,38,38,0.15);
+      border: 1px solid rgba(220,38,38,0.4); border-radius: 100px;
+      font-size: 11px; font-weight: 800; color: var(--red); letter-spacing: 1px;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--red);
+      animation: live-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%     { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* ── Gesture chips ── */
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; background: #DBEAFE;
+      border: 1px solid #BFDBFE; border-radius: 100px;
+      font-size: 13px; font-weight: 500; color: #1E40AF;
+      transition: all var(--transition);
+    }
+    .chip:hover { background: #BFDBFE; }
+    .chip-delete {
+      width: 18px; height: 18px; border-radius: 50%; background: rgba(220,38,38,0.15);
+      color: var(--red); border: none; cursor: pointer; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition); line-height: 1;
+    }
+    .chip-delete:hover { background: rgba(220,38,38,0.3); transform: scale(1.1); }
+
+    /* ── Log console ── */
+    .log-console {
+      background: #060645; border-radius: 8px;
+      padding: 16px;
+      font-family: 'Courier New', monospace; font-size: 0.8rem;
+      color: #66EEFA; max-height: 200px; overflow-y: auto;
+      line-height: 1.7;
+    }
+    .log-console::-webkit-scrollbar { width: 4px; }
+    .log-console::-webkit-scrollbar-track { background: transparent; }
+    .log-console::-webkit-scrollbar-thumb { background: rgba(102,238,250,0.3); border-radius: 2px; }
+
+    .log-line { display: block; }
+    .log-line.error { color: #fca5a5; }
+    .log-line.info  { color: #93c5fd; }
+
+    /* ── Webcam feed ── */
+    .webcam-container {
+      position: relative; border-radius: var(--radius); overflow: hidden;
+      background: #060645; border: 2px solid var(--border);
+      aspect-ratio: 4/3;
+    }
+
+    .webcam-img {
+      width: 100%; height: 100%; object-fit: cover;
+      display: block;
+    }
+
+    .webcam-overlay {
+      position: absolute; top: 14px; left: 14px;
+      display: flex; gap: 8px; align-items: center;
+    }
+
+    /* ── Dashboard hero ── */
+    .hero {
+      text-align: center; padding: 60px 40px 40px;
+      position: relative;
+    }
+
+    .hero-title {
+      font-size: clamp(42px, 5vw, 64px);
+      font-weight: 900; letter-spacing: -3px; line-height: 1.1;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #1C46C0, #060645);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 18px; color: var(--text2); max-width: 500px; margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+
+    .hero-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Section headings ── */
+    .section-title {
+      font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px;
+      color: var(--text);
+    }
+    .section-sub { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+
+    /* ── Quick action cards ── */
+    .quick-card {
+      padding: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      cursor: pointer; transition: all var(--transition);
+      text-align: center;
+    }
+    .quick-card:hover {
+      border-color: #1C46C0;
+      background: #F4F6FB;
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(28,70,192,0.15);
+    }
+    .quick-icon { font-size: 36px; margin-bottom: 12px; }
+    .quick-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .quick-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--text3);
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      font-size: 14px; color: var(--text);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--bg2); }
+
+    /* ── Confidence bar ── */
+    .conf-bar-track {
+      width: 100%; height: 12px; background: #E8EDF7;
+      border-radius: 6px; overflow: hidden; margin-top: 8px;
+    }
+    .conf-bar-fill {
+      height: 100%; border-radius: 6px;
+      background: linear-gradient(90deg, #1C46C0, #060645);
+      transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ── Prediction display ── */
+    .prediction-big {
+      font-size: clamp(32px, 4vw, 52px); font-weight: 900; letter-spacing: -2px;
+      background: linear-gradient(135deg, #1C46C0, #060645);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Recent predictions list ── */
+    .pred-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      font-size: 14px; color: var(--text);
+    }
+    .pred-item:last-child { border-bottom: none; }
+
+    /* ── Divider ── */
+    .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+    /* ── Accuracy display ── */
+    .accuracy-big {
+      font-size: 72px; font-weight: 900; letter-spacing: -4px; line-height: 1;
+      background: linear-gradient(135deg, #1C46C0, #060645);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 48px 24px;
+      color: var(--text3);
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state-text { font-size: 15px; }
+
+    /* ── Scrollbar global ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D0D8EE; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #1C46C0; }
+
+    /* ── Notification toast ── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      padding: 14px 20px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; min-width: 220px;
+      backdrop-filter: blur(20px); transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+      transform: translateY(100px); opacity: 0; pointer-events: none;
+      border: 1px solid;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: #D1FAE5; color: #065F46; border-color: #6EE7B7; }
+    #toast.error   { background: #FEE2E2; color: #991B1B; border-color: #FCA5A5; }
+    #toast.info    { background: #DBEAFE; color: #1E40AF; border-color: #93C5FD; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 0px; }
+      #sidebar { transform: translateX(-260px); width: 260px; }
+      #sidebar.open { transform: translateX(0); }
+      #main { margin-left: 0; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-6-4 { grid-template-columns: 1fr; }
+      .page { padding: 20px; }
+      #topbar { padding: 16px 20px; }
+    }
+
+    /* ── Mobile hamburger ── */
+    #hamburger {
+      display: none; background: none; border: 1px solid var(--border);
+      color: var(--text); cursor: pointer; padding: 8px 10px;
+      border-radius: 8px; font-size: 18px;
+    }
+    @media (max-width: 900px) { #hamburger { display: flex; } }
+
+    /* ── Main content background ── */
+    #main { background: var(--bg2); }
+
+    /* ── Miscellaneous utilities ── */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mt-4 { margin-top: 16px; }
+    .mt-6 { margin-top: 24px; }
+    .mt-8 { margin-top: 32px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-4 { margin-bottom: 16px; }
+    .mb-6 { margin-bottom: 24px; }
+    .text-sm { font-size: 13px; }
+    .text-muted { color: var(--text3); }
+    .text-secondary { color: var(--text2); }
+    .font-bold { font-weight: 700; }
+    .hidden { display: none !important; }
+    .w-full { width: 100%; }
+    .text-center { text-align: center; }
+    .rounded-full { border-radius: 9999px; }
+  </style>
+</head>
+
+<body>
+<div id="app">
+
+  <!-- ══ Sidebar ══════════════════════════════════════════════════════════ -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo">
+        <span style="font-size:1.4rem;font-weight:700;color:#fff;letter-spacing:-0.5px;">a3cp</span>
+        <span style="font-size:0.65rem;color:rgba(255,255,255,0.6);display:block;margin-top:-2px;letter-spacing:0.5px;">THE OPEN UNIVERSITY</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <div class="nav-item active" onclick="loadPage('dashboard')">
+        <span class="nav-icon">⬡</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="loadPage('record')">
+        <span class="nav-icon">⏺</span> Record
+      </div>
+      <div class="nav-item" onclick="loadPage('train')">
+        <span class="nav-icon">⚙</span> Train
+      </div>
+      <div class="nav-item" onclick="loadPage('recognize')">
+        <span class="nav-icon">◉</span> Recognize
+      </div>
+    </div>
+
+    <div class="sidebar-status">
+      <div style="display:flex;align-items:center;margin-bottom:8px;">
+        <span class="status-dot" id="cam-status-dot"></span>
+        <span class="status-text" id="cam-status-text">Camera active</span>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);">a3cp v1.0</div>
+    </div>
+  </nav>
+
+  <!-- ══ Main ════════════════════════════════════════════════════════════ -->
+  <div id="main">
+
+    <!-- Top bar -->
+    <div id="topbar">
+      <div>
+        <button id="hamburger" onclick="toggleSidebar()">☰</button>
+      </div>
+      <div style="flex:1;padding-left:16px;">
+        <div id="topbar-title">Dashboard</div>
+        <div id="topbar-subtitle">Overview of your gesture recognition system</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" onclick="refreshStats()" title="Refresh data">↺ Refresh</button>
+      </div>
+    </div>
+
+    <!-- ══ DASHBOARD ══════════════════════════════════════════════════════ -->
+    <div id="page-dashboard" class="page active">
+
+      <div class="hero">
+        <div class="hero-title">
+          Real-Time<br/><span class="gradient-text">Gesture Recognition</span>
+        </div>
+        <p class="hero-sub">
+          Record gestures, train a neural network, and recognize movements in real-time — all from your browser.
+        </p>
+        <div class="hero-actions">
+          <button class="btn btn-gradient btn-lg" onclick="loadPage('record')">⏺ Start Recording</button>
+          <button class="btn btn-ghost btn-lg" onclick="loadPage('recognize')">◉ Live Recognize</button>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="grid-3 mb-6">
+        <div class="stat-card">
+          <div class="stat-icon indigo">✦</div>
+          <div class="stat-value" id="stat-total-rows">—</div>
+          <div class="stat-label">Total data rows</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon cyan">⚙</div>
+          <div id="stat-model-status" class="mt-2">
+            <span class="badge badge-muted">No model yet</span>
+          </div>
+          <div class="stat-label mt-3">Model status</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon emerald">◈</div>
+          <div class="stat-value" id="stat-class-count">0</div>
+          <div class="stat-label">Gesture classes</div>
+        </div>
+      </div>
+
+      <!-- Quick actions + Class list -->
+      <div class="grid-2">
+        <div>
+          <div class="section-title">Quick Actions</div>
+          <div class="section-sub">Jump right into any workflow</div>
+          <div style="display:grid;gap:12px;">
+            <div class="quick-card" onclick="loadPage('record')">
+              <div class="quick-icon">⏺</div>
+              <div class="quick-title">Record Gesture</div>
+              <div class="quick-desc">Use your webcam to record a new gesture class with MediaPipe tracking</div>
+            </div>
+            <div class="quick-card" onclick="loadPage('train')">
+              <div class="quick-icon">⚙</div>
+              <div class="quick-title">Train Model</div>
+              <div class="quick-desc">Train an LSTM neural network on your recorded gestures</div>
+            </div>
+            <div class="quick-card" onclick="loadPage('recognize')">
+              <div class="quick-icon">◉</div>
+              <div class="quick-title">Live Recognize</div>
+              <div class="quick-desc">Run real-time gesture recognition using your trained model</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Recorded Gestures</div>
+          <div class="section-sub">Your gesture dataset overview</div>
+          <div class="card">
+            <div class="card-body" style="padding:0;">
+              <div id="dash-class-list">
+                <div class="empty-state">
+                  <div class="empty-state-icon">◈</div>
+                  <div class="empty-state-text">No gestures recorded yet</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
+
+
+    <!-- ══ RECORD ═════════════════════════════════════════════════════════ -->
+    <div id="page-record" class="page">
+
+      <div class="mb-6">
+        <div class="section-title">⏺ Record Gesture</div>
+        <div class="section-sub">Use your webcam to capture gesture data. Stand clearly in frame and perform your gesture naturally.</div>
+      </div>
+
+      <div class="grid-6-4">
+
+        <!-- Webcam -->
+        <div>
+          <div class="webcam-container" id="rec-webcam-wrap">
+            <!-- video shows raw feed instantly; canvas overlays MediaPipe annotations -->
+            <video id="rec-camera-video" autoplay playsinline muted class="webcam-img"></video>
+            <canvas id="rec-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
+            <div class="webcam-overlay">
+              <div id="rec-live-badge" class="live-badge hidden">
+                <div class="live-dot"></div>REC
+              </div>
+            </div>
+          </div>
+
+          <!-- Existing gestures -->
+          <div class="mt-4">
+            <div class="text-sm text-secondary mb-2 font-bold" style="letter-spacing:0.5px;text-transform:uppercase;">Recorded Gestures</div>
+            <div id="rec-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:36px;">
+              <span class="text-muted text-sm">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="card" style="padding:24px;">
+            <div class="form-group">
+              <label class="form-label">Gesture Name</label>
+              <input type="text" id="rec-gesture-name" class="form-input" placeholder="e.g. wave, thumbs_up, clap" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Duration: <span id="rec-dur-val" style="color:#1C46C0;font-weight:700;">60s</span></label>
+              <input type="range" id="rec-duration" min="30" max="120" value="60" oninput="document.getElementById('rec-dur-val').textContent=this.value+'s'" />
+              <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                <span class="text-sm text-muted">30s</span>
+                <span class="text-sm text-muted">120s</span>
+              </div>
+            </div>
+
+            <button id="rec-start-btn" class="btn btn-gradient w-full" onclick="startRecording()">
+              ⏺ Start Recording
+            </button>
+            <button id="rec-stop-btn" class="btn btn-danger w-full mt-3 hidden" onclick="stopRecording()">
+              ⏹ Stop Recording
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div class="card" id="rec-progress-card" style="padding:20px;display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span class="text-sm font-bold">Progress</span>
+              <span class="text-sm" id="rec-progress-pct" style="color:#1C46C0;">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="rec-progress-bar" style="width:0%;"></div>
+            </div>
+          </div>
+
+          <!-- Status card -->
+          <div class="card" id="rec-status-card" style="padding:20px;display:none;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Status</div>
+            <div id="rec-status-badge"><span class="badge badge-muted">Idle</span></div>
+            <div id="rec-status-msg" class="text-sm text-secondary mt-3"></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /record -->
+
+
+    <!-- ══ TRAIN ══════════════════════════════════════════════════════════ -->
+    <div id="page-train" class="page">
+
+      <div class="mb-6">
+        <div class="section-title">⚙ Train Model</div>
+        <div class="section-sub">Train an LSTM neural network on your recorded gesture data. Requires at least 2 gesture classes.</div>
+      </div>
+
+      <div class="grid-2 mb-6">
+
+        <!-- Data overview -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Dataset Overview</span>
+            <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="refreshStats()">↺ Refresh</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div id="train-class-table">
+              <div class="empty-state" style="padding:32px;">
+                <div class="empty-state-icon">◈</div>
+                <div class="empty-state-text">No data yet. Record some gestures first.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Training config -->
+        <div class="card" style="padding:24px;">
+          <div class="form-group">
+            <label class="form-label">Epochs: <span id="train-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+            <input type="range" id="train-epochs" min="10" max="100" value="50" oninput="document.getElementById('train-epoch-val').textContent=this.value" />
+            <div style="display:flex;justify-content:space-between;margin-top:6px;">
+              <span class="text-sm text-muted">10</span>
+              <span class="text-sm text-muted">100</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <button id="train-btn" class="btn btn-gradient w-full" onclick="startTraining()">
+            ⚙ Train Model
+          </button>
+
+          <div class="mt-4 text-sm text-secondary" style="line-height:1.6;">
+            Training uses an LSTM architecture with dropout regularization and class-weight balancing. The model is saved automatically.
+          </div>
+        </div>
+      </div>
+
+      <!-- Training progress (hidden until training starts) -->
+      <div id="train-progress-section" style="display:none;">
+
+        <div class="card mb-6" style="padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <span class="font-bold">Training Progress</span>
+            <div id="train-status-badge"><span class="badge badge-blue">Running</span></div>
+          </div>
+          <div class="progress-track" style="height:12px;">
+            <div class="progress-fill" id="train-progress-bar" style="width:0%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <span class="text-sm text-muted" id="train-epoch-progress">Epoch 0</span>
+            <span class="text-sm" id="train-progress-pct" style="color:#1C46C0;">0%</span>
+          </div>
+        </div>
+
+        <div class="grid-2 mb-6">
+          <!-- Accuracy chart -->
+          <div class="card" style="padding:20px;">
+            <div class="card-title mb-4">Accuracy</div>
+            <canvas id="chart-accuracy" height="180"></canvas>
+          </div>
+          <!-- Loss chart -->
+          <div class="card" style="padding:20px;">
+            <div class="card-title mb-4">Loss</div>
+            <canvas id="chart-loss" height="180"></canvas>
+          </div>
+        </div>
+
+        <!-- Log console -->
+        <div class="card mb-6" style="padding:20px;">
+          <div class="card-title mb-4">Training Log</div>
+          <div class="log-console" id="train-log"></div>
+        </div>
+
+        <!-- Final accuracy -->
+        <div id="train-result-card" class="card" style="padding:36px;text-align:center;display:none;">
+          <div class="text-sm text-secondary mb-2" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Final Test Accuracy</div>
+          <div class="accuracy-big" id="train-final-acc">—</div>
+          <div class="text-secondary mt-3" id="train-final-msg"></div>
+        </div>
+
+      </div>
+
+    </div><!-- /train -->
+
+
+    <!-- ══ RECOGNIZE ══════════════════════════════════════════════════════ -->
+    <div id="page-recognize" class="page">
+
+      <div class="mb-6">
+        <div class="section-title">◉ Live Recognition</div>
+        <div class="section-sub">Run real-time gesture recognition using your trained model. Make sure a model has been trained first.</div>
+      </div>
+
+      <div class="grid-6-4">
+
+        <!-- Camera -->
+        <div>
+          <div class="webcam-container" id="inf-webcam-wrap">
+            <video id="inf-camera-video" autoplay playsinline muted class="webcam-img"></video>
+            <canvas id="inf-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
+            <div class="webcam-overlay">
+              <div id="inf-live-badge" class="live-badge hidden">
+                <div class="live-dot"></div>LIVE
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-3 mt-4">
+            <button id="inf-start-btn" class="btn btn-emerald" onclick="startInference()">▶ Start Recognition</button>
+            <button id="inf-stop-btn" class="btn btn-danger hidden" onclick="stopInference()">⏹ Stop</button>
+          </div>
+        </div>
+
+        <!-- Prediction panel -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+
+          <div class="card" style="padding:28px;">
+            <div class="text-sm text-muted mb-3" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Current Gesture</div>
+            <div class="prediction-big" id="inf-class">—</div>
+
+            <div style="margin-top:16px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span class="text-sm text-secondary">Confidence</span>
+                <span class="text-sm font-bold" id="inf-conf-text" style="color:#1C46C0;">0%</span>
+              </div>
+              <div class="conf-bar-track">
+                <div class="conf-bar-fill" id="inf-conf-bar" style="width:0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:20px;">
+            <div class="card-title mb-4">Recent Predictions</div>
+            <div id="inf-recent-list">
+              <div class="text-muted text-sm text-center" style="padding:16px;">No predictions yet</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div><!-- /recognize -->
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<!-- Hidden video element for getUserMedia capture -->
+<video id="raw-camera-video" autoplay playsinline muted style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-999px"></video>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════════════════════
+const state = {
+  currentPage: 'dashboard',
+  statsRefreshInterval: null,
+  recPollInterval: null,
+  trainPollInterval: null,
+  infPollInterval: null,
+  recRecording: false,
+  infRunning: false,
+  recentPredictions: [],
+  chartAcc: null,
+  chartLoss: null,
+  stats: { total_rows: 0, classes: {}, model_trained: false }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Navigation
+// ══════════════════════════════════════════════════════════════════════════════
+const PAGE_META = {
+  dashboard: { title: 'Dashboard', sub: 'Overview of your gesture recognition system' },
+  record:    { title: '⏺ Record Gesture', sub: 'Capture gesture data with your webcam' },
+  train:     { title: '⚙ Train Model', sub: 'Train an LSTM neural network on your data' },
+  recognize: { title: '◉ Live Recognition', sub: 'Real-time gesture recognition' }
+};
+
+function loadPage(name) {
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if (el.textContent.trim().toLowerCase().includes(name === 'dashboard' ? '⬡' : name === 'record' ? '⏺' : name === 'train' ? '⚙' : '◉')) {
+      el.classList.add('active');
+    }
+  });
+  // simpler: iterate and match onclick
+  document.querySelectorAll('.nav-item').forEach(el => {
+    const onclick = el.getAttribute('onclick') || '';
+    if (onclick.includes("'" + name + "'")) el.classList.add('active');
+  });
+
+  // Topbar
+  const meta = PAGE_META[name];
+  document.getElementById('topbar-title').textContent = meta.title;
+  document.getElementById('topbar-subtitle').textContent = meta.sub;
+
+  state.currentPage = name;
+
+  // Camera start/stop based on page
+  if (name === 'record' || name === 'recognize') {
+    startCamera();
+  } else {
+    stopCamera();
+  }
+
+  // Page-specific init
+  if (name === 'record') initRecordPage();
+  if (name === 'train') initTrainPage();
+
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Toast notifications
+// ══════════════════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = type; }, 3500);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Stats refresh
+// ══════════════════════════════════════════════════════════════════════════════
+async function refreshStats() {
+  try {
+    const res = await fetch('/api/data/stats');
+    const data = await res.json();
+    state.stats = data;
+    updateDashboard(data);
+    updateRecordChips(data);
+    updateTrainTable(data);
+  } catch(e) {
+    console.warn('Stats fetch error', e);
+  }
+}
+
+function updateDashboard(data) {
+  document.getElementById('stat-total-rows').textContent = data.total_rows.toLocaleString();
+  document.getElementById('stat-class-count').textContent = Object.keys(data.classes).length;
+
+  const modelEl = document.getElementById('stat-model-status');
+  if (data.model_trained) {
+    modelEl.innerHTML = '<span class="badge badge-green">✓ Trained</span>';
+  } else {
+    modelEl.innerHTML = '<span class="badge badge-muted">Not trained</span>';
+  }
+
+  // Class list in dashboard
+  const listEl = document.getElementById('dash-class-list');
+  const classes = data.classes;
+  if (Object.keys(classes).length === 0) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">◈</div><div class="empty-state-text">No gestures recorded yet</div></div>';
+    return;
+  }
+  let html = '<table class="data-table"><thead><tr><th>Gesture</th><th>Sequences</th><th></th></tr></thead><tbody>';
+  for (const [cls, count] of Object.entries(classes)) {
+    html += `<tr>
+      <td><span style="font-weight:600;">${esc(cls)}</span></td>
+      <td><span class="badge badge-blue">${count}</span></td>
+      <td><button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="deleteGesture('${esc(cls)}')">Delete</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  listEl.innerHTML = html;
+}
+
+function updateRecordChips(data) {
+  const chips = document.getElementById('rec-chips');
+  if (!chips) return;
+  const classes = data.classes;
+  if (Object.keys(classes).length === 0) {
+    chips.innerHTML = '<span class="text-muted text-sm">No gestures yet</span>';
+    return;
+  }
+  chips.innerHTML = Object.entries(classes).map(([cls, cnt]) =>
+    `<div class="chip">
+      ${esc(cls)} <span class="badge badge-blue" style="font-size:11px;padding:2px 7px;">${cnt}</span>
+      <button class="chip-delete" onclick="deleteGesture('${esc(cls)}')" title="Delete ${esc(cls)}">✕</button>
+    </div>`
+  ).join('');
+}
+
+function updateTrainTable(data) {
+  const el = document.getElementById('train-class-table');
+  if (!el) return;
+  const classes = data.classes;
+  if (Object.keys(classes).length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px;"><div class="empty-state-icon">◈</div><div class="empty-state-text">No data yet. Record some gestures first.</div></div>';
+    return;
+  }
+  let html = '<table class="data-table"><thead><tr><th>Gesture</th><th>Sequences</th></tr></thead><tbody>';
+  for (const [cls, cnt] of Object.entries(classes)) {
+    const bar = Math.min(100, (cnt / Math.max(...Object.values(classes))) * 100);
+    html += `<tr>
+      <td><span style="font-weight:600;">${esc(cls)}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="badge badge-blue">${cnt}</span>
+          <div style="flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+            <div style="width:${bar}%;height:100%;background:linear-gradient(90deg,#1C46C0,#060645);border-radius:3px;"></div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+async function deleteGesture(name) {
+  if (!confirm(`Delete all data for gesture "${name}"?`)) return;
+  try {
+    const res = await fetch('/api/data/gesture/' + encodeURIComponent(name), { method: 'DELETE' });
+    if (res.ok) {
+      showToast(`Deleted gesture: ${name}`, 'success');
+      refreshStats();
+    } else {
+      showToast('Failed to delete', 'error');
+    }
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RECORD PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function initRecordPage() {
+  refreshStats();
+}
+
+async function startRecording() {
+  const name = document.getElementById('rec-gesture-name').value.trim();
+  if (!name) { showToast('Enter a gesture name first', 'error'); return; }
+  const duration = parseInt(document.getElementById('rec-duration').value);
+
+  try {
+    const res = await fetch('/api/record/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gesture_name: name, duration })
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Error');
+
+    state.recRecording = true;
+    document.getElementById('rec-start-btn').disabled = true;
+    document.getElementById('rec-stop-btn').classList.remove('hidden');
+    document.getElementById('rec-live-badge').classList.remove('hidden');
+    document.getElementById('rec-progress-card').style.display = 'block';
+    document.getElementById('rec-status-card').style.display = 'block';
+    setRecStatus('recording', 0, '');
+    showToast(`Recording "${name}" for ${duration}s`, 'info');
+
+    state.recPollInterval = setInterval(pollRecording, 500);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function stopRecording() {
+  await fetch('/api/record/stop', { method: 'POST' });
+  clearInterval(state.recPollInterval);
+  // let poll one more time
+  setTimeout(pollRecording, 600);
+  document.getElementById('rec-live-badge').classList.add('hidden');
+}
+
+async function pollRecording() {
+  try {
+    const res = await fetch('/api/record/status');
+    const data = await res.json();
+    setRecStatus(data.status, data.progress, data.message);
+
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(state.recPollInterval);
+      state.recRecording = false;
+      document.getElementById('rec-start-btn').disabled = false;
+      document.getElementById('rec-stop-btn').classList.add('hidden');
+      document.getElementById('rec-live-badge').classList.add('hidden');
+      if (data.status === 'done') {
+        showToast(data.message || 'Recording saved!', 'success');
+        refreshStats();
+      } else {
+        showToast(data.message || 'Recording error', 'error');
+      }
+    }
+  } catch(e) {}
+}
+
+function setRecStatus(status, progress, message) {
+  const pct = Math.round(progress);
+  document.getElementById('rec-progress-bar').style.width = pct + '%';
+  document.getElementById('rec-progress-pct').textContent = pct + '%';
+
+  const badges = {
+    idle:       '<span class="badge badge-muted">Idle</span>',
+    recording:  '<span class="badge badge-red"><span class="live-dot" style="display:inline-block;"></span> Recording</span>',
+    processing: '<span class="badge badge-amber">Processing...</span>',
+    done:       '<span class="badge badge-green">✓ Done</span>',
+    error:      '<span class="badge badge-red">✕ Error</span>'
+  };
+  document.getElementById('rec-status-badge').innerHTML = badges[status] || badges.idle;
+  document.getElementById('rec-status-msg').textContent = message;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TRAIN PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function initTrainPage() {
+  refreshStats();
+  initCharts();
+}
+
+function initCharts() {
+  if (state.chartAcc) { state.chartAcc.destroy(); state.chartAcc = null; }
+  if (state.chartLoss) { state.chartLoss.destroy(); state.chartLoss = null; }
+
+  const chartOpts = (label1, label2, color1, color2) => ({
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: label1, data: [],
+          borderColor: color1, backgroundColor: color1 + '22',
+          borderWidth: 2, tension: 0.4, fill: true, pointRadius: 2
+        },
+        {
+          label: label2, data: [],
+          borderColor: color2, backgroundColor: color2 + '18',
+          borderWidth: 2, tension: 0.4, fill: true, pointRadius: 2,
+          borderDash: [6,3]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 200 },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 12 }, boxWidth: 20, padding: 16 } }
+      },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#475569', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' }, min: 0, max: 1 }
+      }
+    }
+  });
+
+  const lossOpts = (label1, label2, color1, color2) => ({
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: label1, data: [], borderColor: color1, backgroundColor: color1+'22', borderWidth:2, tension:0.4, fill:true, pointRadius:2 },
+        { label: label2, data: [], borderColor: color2, backgroundColor: color2+'18', borderWidth:2, tension:0.4, fill:true, pointRadius:2, borderDash:[6,3] }
+      ]
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 200 },
+      plugins: {
+        legend: { labels: { color:'#94a3b8', font:{ family:'Inter', size:12 }, boxWidth:20, padding:16 } }
+      },
+      scales: {
+        x: { ticks:{ color:'#475569', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.05)' } },
+        y: { ticks:{ color:'#475569', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.05)' }, min:0 }
+      }
+    }
+  });
+
+  state.chartAcc = new Chart(
+    document.getElementById('chart-accuracy'),
+    chartOpts('Train Acc', 'Val Acc', '#6366f1', '#22d3ee')
+  );
+  state.chartLoss = new Chart(
+    document.getElementById('chart-loss'),
+    lossOpts('Train Loss', 'Val Loss', '#f59e0b', '#ef4444')
+  );
+}
+
+async function startTraining() {
+  const epochs = parseInt(document.getElementById('train-epochs').value);
+  try {
+    const res = await fetch('/api/train/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ epochs })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.detail || 'Cannot start training', 'error');
+      return;
+    }
+
+    document.getElementById('train-btn').disabled = true;
+    document.getElementById('train-progress-section').style.display = 'block';
+    document.getElementById('train-result-card').style.display = 'none';
+    document.getElementById('train-log').innerHTML = '';
+    initCharts();
+    showToast(`Training started (${epochs} epochs)`, 'info');
+
+    state.trainPollInterval = setInterval(pollTraining, 1000);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function pollTraining() {
+  try {
+    const res = await fetch('/api/train/status');
+    const data = await res.json();
+    updateTrainingUI(data);
+
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(state.trainPollInterval);
+      document.getElementById('train-btn').disabled = false;
+
+      if (data.status === 'done') {
+        showToast(data.message || 'Training complete!', 'success');
+        document.getElementById('train-result-card').style.display = 'block';
+        document.getElementById('train-final-acc').textContent =
+          (data.final_accuracy !== null ? (data.final_accuracy * 100).toFixed(1) + '%' : '—');
+        document.getElementById('train-final-msg').textContent = data.message;
+        refreshStats();
+      } else {
+        showToast(data.message || 'Training failed', 'error');
+      }
+    }
+  } catch(e) {}
+}
+
+function updateTrainingUI(data) {
+  const pct = Math.round(data.progress);
+  document.getElementById('train-progress-bar').style.width = pct + '%';
+  document.getElementById('train-progress-pct').textContent = pct + '%';
+
+  const epochs = parseInt(document.getElementById('train-epochs').value);
+  const epochDone = Math.round((pct / 100) * epochs);
+  document.getElementById('train-epoch-progress').textContent = `Epoch ${epochDone} / ${epochs}`;
+
+  // Status badge
+  const badges = {
+    running: '<span class="badge badge-blue">⟳ Running</span>',
+    done:    '<span class="badge badge-green">✓ Done</span>',
+    error:   '<span class="badge badge-red">✕ Error</span>'
+  };
+  document.getElementById('train-status-badge').innerHTML = badges[data.status] || '';
+
+  // Logs
+  const logEl = document.getElementById('train-log');
+  if (data.logs && data.logs.length > 0) {
+    logEl.innerHTML = data.logs.map(l => {
+      const cls = l.startsWith('Error') ? 'error' : l.startsWith('Training') || l.startsWith('Loading') ? 'info' : '';
+      return `<span class="log-line ${cls}">&gt; ${esc(l)}</span>`;
+    }).join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // Charts
+  if (data.history) {
+    const h = data.history;
+    const labels = h.accuracy.map((_, i) => i + 1);
+
+    if (state.chartAcc) {
+      state.chartAcc.data.labels = labels;
+      state.chartAcc.data.datasets[0].data = h.accuracy;
+      state.chartAcc.data.datasets[1].data = h.val_accuracy;
+      state.chartAcc.update('none');
+    }
+    if (state.chartLoss) {
+      state.chartLoss.data.labels = labels;
+      state.chartLoss.data.datasets[0].data = h.loss;
+      state.chartLoss.data.datasets[1].data = h.val_loss;
+      state.chartLoss.update('none');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RECOGNIZE PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+async function startInference() {
+  try {
+    const res = await fetch('/api/inference/start', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.detail || 'Cannot start recognition', 'error');
+      return;
+    }
+    state.infRunning = true;
+    document.getElementById('inf-start-btn').classList.add('hidden');
+    document.getElementById('inf-stop-btn').classList.remove('hidden');
+    document.getElementById('inf-live-badge').classList.remove('hidden');
+    showToast('Recognition started', 'success');
+    state.infPollInterval = setInterval(pollPrediction, 500);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function stopInference() {
+  clearInterval(state.infPollInterval);
+  await fetch('/api/inference/stop', { method: 'POST' });
+  state.infRunning = false;
+  document.getElementById('inf-start-btn').classList.remove('hidden');
+  document.getElementById('inf-stop-btn').classList.add('hidden');
+  document.getElementById('inf-live-badge').classList.add('hidden');
+  document.getElementById('inf-class').textContent = '—';
+  document.getElementById('inf-conf-bar').style.width = '0%';
+  document.getElementById('inf-conf-text').textContent = '0%';
+  showToast('Recognition stopped', 'info');
+}
+
+async function pollPrediction() {
+  try {
+    const res = await fetch('/api/inference/prediction');
+    const data = await res.json();
+
+    const cls = data.class || '—';
+    const conf = data.confidence || 0;
+    const confPct = Math.round(conf * 100);
+
+    document.getElementById('inf-class').textContent = cls;
+    document.getElementById('inf-conf-bar').style.width = confPct + '%';
+    document.getElementById('inf-conf-text').textContent = confPct + '%';
+
+    // Update recent predictions
+    if (cls !== '—' && conf > 0.3) {
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const last = state.recentPredictions[0];
+      if (!last || last.cls !== cls || (Date.now() - last.ts) > 1500) {
+        state.recentPredictions.unshift({ cls, conf: confPct, time: now, ts: Date.now() });
+        state.recentPredictions = state.recentPredictions.slice(0, 5);
+        renderRecentPredictions();
+      }
+    }
+  } catch(e) {}
+}
+
+function renderRecentPredictions() {
+  const el = document.getElementById('inf-recent-list');
+  if (state.recentPredictions.length === 0) {
+    el.innerHTML = '<div class="text-muted text-sm text-center" style="padding:16px;">No predictions yet</div>';
+    return;
+  }
+  el.innerHTML = state.recentPredictions.map((p, i) =>
+    `<div class="pred-item">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${i===0?'var(--emerald)':'#D0D8EE'}"></div>
+        <span style="font-weight:${i===0?700:500}">${esc(p.cls)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge ${p.conf>70?'badge-green':p.conf>40?'badge-blue':'badge-muted'}">${p.conf}%</span>
+        <span class="text-sm text-muted">${p.time}</span>
+      </div>
+    </div>`
+  ).join('');
+}
+
+// ─── Camera / WebSocket ───────────────────────────────────────────────────────
+let cameraWs = null;
+let cameraStream = null;
+let frameIntervalId = null;
+let wsReconnectTimer = null;
+const sendCanvas = document.createElement('canvas');
+sendCanvas.width = 640;
+sendCanvas.height = 480;
+const sendCtx = sendCanvas.getContext('2d');
+
+function setCameraStatus(online, text) {
+  const dot  = document.getElementById('cam-status-dot');
+  const txt  = document.getElementById('cam-status-text');
+  if (dot) { dot.classList.toggle('offline', !online); }
+  if (txt) { txt.textContent = text || (online ? 'Camera active' : 'Camera offline'); }
+}
+
+async function startCamera() {
+  // If stream already active, just reconnect WebSocket if needed
+  if (cameraStream && cameraStream.active) {
+    if (!cameraWs || cameraWs.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
+    }
+    return;
+  }
+
+  // Stop any stale state first
+  stopCamera();
+
+  try {
+    setCameraStatus(false, 'Requesting camera...');
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+    });
+
+    // Wire stream to BOTH video elements — whichever is visible will show it
+    ['rec-camera-video', 'inf-camera-video'].forEach(id => {
+      const v = document.getElementById(id);
+      if (v) {
+        v.srcObject = cameraStream;
+        v.play().catch(() => {});
+      }
+    });
+
+    setCameraStatus(true, 'Camera active');
+    connectWebSocket();
+
+  } catch (err) {
+    console.error('Camera error:', err);
+    setCameraStatus(false, 'Camera denied');
+    showToast('Camera access denied. Allow camera permission and reload.', 'error');
+  }
+}
+
+function connectWebSocket() {
+  if (cameraWs && cameraWs.readyState === WebSocket.OPEN) return;
+  if (cameraWs) { cameraWs.close(); cameraWs = null; }
+
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  cameraWs = new WebSocket(`${wsProto}//${location.host}/ws/camera`);
+  cameraWs.binaryType = 'arraybuffer';
+
+  cameraWs.onopen = () => {
+    console.log('WebSocket connected');
+    setCameraStatus(true, 'Camera active');
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+    startFrameLoop();
+  };
+
+  cameraWs.onmessage = (e) => {
+    // Decode the annotated JPEG and paint it over the matching canvas
+    const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas' : 'rec-camera-canvas';
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    createImageBitmap(new Blob([e.data], { type: 'image/jpeg' })).then(bmp => {
+      canvas.width  = bmp.width;
+      canvas.height = bmp.height;
+      canvas.getContext('2d').drawImage(bmp, 0, 0);
+      canvas.style.display = 'block';
+      bmp.close();
+    }).catch(() => {});
+  };
+
+  cameraWs.onerror = (e) => {
+    console.warn('WebSocket error', e);
+    setCameraStatus(false, 'Connection error');
+  };
+
+  cameraWs.onclose = () => {
+    console.log('WebSocket closed');
+    // Auto-reconnect if we are still on a camera page
+    if (state.currentPage === 'record' || state.currentPage === 'recognize') {
+      setCameraStatus(false, 'Reconnecting...');
+      wsReconnectTimer = setTimeout(() => {
+        if (cameraStream && cameraStream.active) {
+          connectWebSocket();
+        }
+      }, 2000);
+    }
+  };
+}
+
+function startFrameLoop() {
+  if (frameIntervalId) return;
+  frameIntervalId = setInterval(() => {
+    if (!cameraWs || cameraWs.readyState !== WebSocket.OPEN) return;
+
+    const videoId = state.currentPage === 'recognize' ? 'inf-camera-video' : 'rec-camera-video';
+    const video = document.getElementById(videoId);
+    if (!video || video.readyState < 2) return;
+
+    sendCtx.drawImage(video, 0, 0, 640, 480);
+    sendCanvas.toBlob(blob => {
+      if (blob && cameraWs && cameraWs.readyState === WebSocket.OPEN) {
+        blob.arrayBuffer().then(buf => cameraWs.send(buf)).catch(() => {});
+      }
+    }, 'image/jpeg', 0.85);
+  }, 66);  // ~15 FPS for smooth video
+}
+
+function stopCamera() {
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  if (frameIntervalId) { clearInterval(frameIntervalId); frameIntervalId = null; }
+  if (cameraWs) {
+    cameraWs.onclose = null;  // prevent auto-reconnect
+    cameraWs.close();
+    cameraWs = null;
+  }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  // Clear video srcObject and hide canvases
+  ['rec-camera-video', 'inf-camera-video'].forEach(id => {
+    const v = document.getElementById(id);
+    if (v) v.srcObject = null;
+  });
+  ['rec-camera-canvas', 'inf-camera-canvas'].forEach(id => {
+    const c = document.getElementById(id); if (c) c.style.display = 'none';
+  });
+  setCameraStatus(false, 'Camera offline');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Utilities
+// ══════════════════════════════════════════════════════════════════════════════
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════════════════════════════════════
+async function init() {
+  // Start stats polling
+  refreshStats();
+  state.statsRefreshInterval = setInterval(refreshStats, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

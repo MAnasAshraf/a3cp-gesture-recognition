@@ -1,0 +1,16 @@
+mediapipe==0.10.9
+opencv-contrib-python==4.11.0.86
+tensorflow==2.13.0
+tensorflow-macos==2.13.0
+pandas>=2.0
+numpy>=1.26.4,<2
+scikit-learn>=1.4.0
+joblib>=1.0
+matplotlib>=3.5
+seaborn>=0.12
+pyaudio>=0.2.14
+librosa>=0.10
+sounddevice>=0.4.4
+fastapi>=0.115
+uvicorn>=0.20
+python-multipart>=0.0.6
