@@ -58,10 +58,14 @@ AudioContext to the same rate avoids any resampling.
 | `app/static/index.html` | Entire frontend — single-page app |
 
 ## Data
-- `data/gestures.csv` — movement gesture training data (MediaPipe landmarks)
-- `data/audio_gestures.csv` — audio gesture training data (MFCC features, 43-dim)
-- `data/models/movement_model.h5` + `label_encoder.pkl`
-- `data/models/audio_model.h5` + `audio_label_encoder.pkl`
+Per-user paths (feature/multi-user branch):
+- `data/users/{username}/gestures.csv` — movement gesture data
+- `data/users/{username}/audio_gestures.csv` — audio gesture data (MFCC, 43-dim)
+- `data/users/{username}/models/movement_model.h5` + `label_encoder.pkl`
+- `data/users/{username}/models/audio_model.h5` + `audio_label_encoder.pkl`
+
+Legacy fallback paths (if no username supplied):
+- `data/gestures.csv`, `data/audio_gestures.csv`, `data/models/`
 
 ## Known constraints
 - Each gesture class needs **at least 2 recordings** before training (stratified split)

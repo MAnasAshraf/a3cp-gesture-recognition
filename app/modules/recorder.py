@@ -9,18 +9,20 @@ from .features import identify_keyframes, FEATURE_SIZE
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "gestures.csv"
 HEADER = ["class", "sequence_id"] + [f"f_{i}" for i in range(FEATURE_SIZE)]
 
-def ensure_csv():
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not DATA_PATH.exists():
-        with open(DATA_PATH, 'w', newline='') as f:
+def ensure_csv(path: Path = None):
+    p = path or DATA_PATH
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if not p.exists():
+        with open(p, 'w', newline='') as f:
             csv.writer(f).writerow(HEADER)
 
 class RecordingSession:
-    def __init__(self, gesture_name: str, duration: int = 60):
+    def __init__(self, gesture_name: str, duration: int = 60, data_path: Path = None):
         self.gesture_name = gesture_name
         self.duration = duration
+        self._data_path = data_path or DATA_PATH
         self.landmarks = []
-        self.status = "idle"   # idle -> countdown -> recording -> processing -> done -> error
+        self.status = "idle"   # idle -> recording -> processing -> done -> error
         self.progress = 0.0    # 0-100
         self.message = ""
         self.frames_saved = 0
@@ -49,7 +51,7 @@ class RecordingSession:
 
     def _save(self):
         try:
-            ensure_csv()
+            ensure_csv(self._data_path)
             with self._lock:
                 all_lm = list(self.landmarks)
 
@@ -61,17 +63,16 @@ class RecordingSession:
             arr = np.array(all_lm)
             keyframes = identify_keyframes(arr)
 
-            # Get next sequence_id
             import pandas as pd
-            if DATA_PATH.exists() and DATA_PATH.stat().st_size > 0:
-                df = pd.read_csv(DATA_PATH)
+            if self._data_path.exists() and self._data_path.stat().st_size > 0:
+                df = pd.read_csv(self._data_path)
                 next_id = int(df['sequence_id'].max()) + 1 if len(df) > 0 else 1
             else:
                 next_id = 1
 
             frame_window = 5
             rows_written = 0
-            with open(DATA_PATH, 'a', newline='') as f:
+            with open(self._data_path, 'a', newline='') as f:
                 writer = csv.writer(f)
                 seq_id = next_id
                 for kf in keyframes:

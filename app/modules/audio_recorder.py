@@ -14,10 +14,11 @@ DATA_PATH = Path(__file__).parent.parent.parent / "data" / "audio_gestures.csv"
 HEADER    = ["class", "sequence_id"] + [f"f_{i}" for i in range(AUDIO_FEATURE_SIZE)]
 
 
-def ensure_csv():
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not DATA_PATH.exists():
-        with open(DATA_PATH, "w", newline="") as f:
+def ensure_csv(path: Path = None):
+    p = path or DATA_PATH
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if not p.exists():
+        with open(p, "w", newline="") as f:
             csv.writer(f).writerow(HEADER)
 
 
@@ -59,9 +60,10 @@ class AudioRecordingSession:
     Receives raw Float32 audio chunks from the browser via WebSocket
     and saves MFCC features to CSV when stopped.
     """
-    def __init__(self, gesture_name: str, duration: int = 10):
+    def __init__(self, gesture_name: str, duration: int = 10, data_path: Path = None):
         self.gesture_name = gesture_name
         self.duration     = duration
+        self._data_path   = data_path or DATA_PATH
         self.status       = "idle"
         self.progress     = 0.0
         self.message      = ""
@@ -95,7 +97,7 @@ class AudioRecordingSession:
 
     def _save(self):
         try:
-            ensure_csv()
+            ensure_csv(self._data_path)
             with self._lock:
                 if not self._chunks:
                     raise ValueError("No audio received — check browser mic permission.")
@@ -107,12 +109,12 @@ class AudioRecordingSession:
 
             import pandas as pd
             next_id = 1
-            if DATA_PATH.exists() and DATA_PATH.stat().st_size > 50:
-                df = pd.read_csv(DATA_PATH)
+            if self._data_path.exists() and self._data_path.stat().st_size > 50:
+                df = pd.read_csv(self._data_path)
                 if len(df) > 0:
                     next_id = int(df["sequence_id"].max()) + 1
 
-            with open(DATA_PATH, "a", newline="") as f:
+            with open(self._data_path, "a", newline="") as f:
                 writer = csv.writer(f)
                 for feats in windows:
                     writer.writerow([self.gesture_name, next_id] + list(feats))
