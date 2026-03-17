@@ -1,11 +1,12 @@
 import os
 import re
 import asyncio
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -524,6 +525,132 @@ async def stop_audio_inference():
 @app.get("/api/audio/inference/prediction")
 async def get_audio_prediction():
     return audio_recognizer.get_prediction()
+
+
+# ─── Video file inference ─────────────────────────────────────────────────────
+
+def _analyse_video(video_path: str, model_path: Path, encoder_path: Path) -> dict:
+    """Read a video file frame-by-frame, run MediaPipe + LSTM, return predictions."""
+    import cv2
+    import joblib
+    import mediapipe as mp
+    from collections import deque
+    from tensorflow.keras.models import load_model
+    from tensorflow.keras.preprocessing.sequence import pad_sequences
+    from .modules.features import extract_landmarks
+
+    CONFIDENCE_THRESHOLD = 0.50
+    ANGLE_COLS = slice(162, 176)
+
+    model = load_model(model_path)
+    le    = joblib.load(encoder_path)
+    try:
+        seq_len = model.input_shape[1] or 11
+    except Exception:
+        seq_len = 11
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError("Could not open video file.")
+
+    fps          = cap.get(cv2.CAP_PROP_FPS) or 30
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration     = total_frames / fps
+    frame_skip   = max(1, int(fps / 15))   # sample at ~15 fps
+
+    mp_holistic = mp.solutions.holistic
+    holistic = mp_holistic.Holistic(
+        model_complexity=1,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5,
+    )
+
+    window      = deque(maxlen=seq_len)
+    predictions = []
+    frame_idx   = 0
+    last_pred_t = -1.0
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_idx % frame_skip != 0:
+                frame_idx += 1
+                continue
+
+            t   = frame_idx / fps
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb.flags.writeable = False
+            results = holistic.process(rgb)
+
+            lm = extract_landmarks(results)
+            if lm is not None:
+                window.append(lm)
+                if len(window) >= seq_len and (t - last_pred_t) >= 0.3:
+                    last_pred_t = t
+                    seq = np.array(list(window), dtype="float32")
+                    seq[:, ANGLE_COLS] /= 180.0
+                    X     = pad_sequences([seq], padding="post", dtype="float32", value=-1.0)
+                    probs = model.predict(X, verbose=0)[0]
+                    idx   = int(np.argmax(probs))
+                    conf  = float(probs[idx])
+                    if conf >= CONFIDENCE_THRESHOLD:
+                        predictions.append({
+                            "time":       round(t, 2),
+                            "class":      le.classes_[idx],
+                            "confidence": round(conf, 3),
+                        })
+            frame_idx += 1
+    finally:
+        cap.release()
+        holistic.close()
+
+    summary = {}
+    for p in predictions:
+        summary[p["class"]] = summary.get(p["class"], 0) + 1
+
+    dominant = max(summary, key=summary.get) if summary else "—"
+    return {
+        "predictions": predictions,
+        "summary":     summary,
+        "dominant":    dominant,
+        "duration":    round(duration, 2),
+        "frames_analysed": frame_idx // frame_skip,
+    }
+
+
+@app.post("/api/inference/video")
+async def inference_video(
+    file: UploadFile = File(...),
+    username: str = Query(default=""),
+):
+    """Upload a video file and get gesture predictions from it."""
+    if username:
+        _validate_username(username)
+        p = _user_paths(username)
+        model_path, encoder_path = p["mv_model"], p["mv_encoder"]
+    else:
+        model_path, encoder_path = MODEL_PATH, Path(str(MODEL_PATH).replace("movement_model.h5", "label_encoder.pkl"))
+
+    if not model_path.exists():
+        raise HTTPException(404, "No trained model found. Train a movement model first.")
+
+    suffix = Path(file.filename).suffix if file.filename else ".mp4"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        loop   = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None, _analyse_video, tmp_path, model_path, encoder_path
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        os.unlink(tmp_path)
 
 
 # ─── Fusion ───────────────────────────────────────────────────────────────────
