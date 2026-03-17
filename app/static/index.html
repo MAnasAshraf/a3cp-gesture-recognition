@@ -602,6 +602,15 @@
       </div>
     </div>
 
+    <!-- Active profile indicator -->
+    <div style="padding:0 24px 18px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px;">
+      <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;">Active Profile</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span id="sidebar-username" style="font-size:14px;font-weight:700;color:#fff;">—</span>
+        <button onclick="showUserModal()" style="font-size:11px;color:rgba(255,255,255,0.55);background:none;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:3px 8px;cursor:pointer;">Switch</button>
+      </div>
+    </div>
+
     <div class="nav-section">
       <div class="nav-label">Navigation</div>
       <div class="nav-item active" onclick="loadPage('dashboard')">
@@ -649,6 +658,10 @@
         <div id="topbar-subtitle">Overview of your gesture recognition system</div>
       </div>
       <div class="topbar-actions">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:#F4F6FB;border:1px solid #D0D8EE;border-radius:8px;font-size:13px;font-weight:600;color:#3A4070;">
+          👤 <span id="topbar-user">—</span>
+          <button onclick="showUserModal()" style="background:none;border:none;cursor:pointer;font-size:11px;color:#1C46C0;text-decoration:underline;padding:0;">Switch</button>
+        </div>
         <button class="btn btn-ghost" onclick="refreshStats()" title="Refresh data">↺ Refresh</button>
       </div>
     </div>
@@ -1105,10 +1118,42 @@
 <!-- Toast notification -->
 <div id="toast"></div>
 
+<!-- ══ User Profile Modal ════════════════════════════════════════════════════ -->
+<div id="user-modal" style="position:fixed;inset:0;background:rgba(6,6,69,0.6);backdrop-filter:blur(6px);z-index:2000;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:40px;width:440px;max-width:calc(100vw - 32px);box-shadow:0 24px 64px rgba(6,6,69,0.3);">
+    <div style="font-size:22px;font-weight:800;color:#060645;margin-bottom:6px;">Select Profile</div>
+    <div style="font-size:14px;color:#6B7280;margin-bottom:24px;">Each profile has its own gesture data and trained models.</div>
+
+    <div id="user-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:20px;">
+      <div style="color:#6B7280;font-size:13px;text-align:center;padding:16px 0;">Loading profiles…</div>
+    </div>
+
+    <div style="border-top:1px solid #E8EDF7;padding-top:20px;">
+      <div style="font-size:13px;font-weight:600;color:#3A4070;margin-bottom:10px;">New Profile</div>
+      <div style="display:flex;gap:10px;">
+        <input type="text" id="new-username" class="form-input" placeholder="e.g. alice, participant_01" style="flex:1;font-size:14px;" maxlength="50"
+               onkeydown="if(event.key==='Enter')createAndSelectUser()" />
+        <button class="btn btn-primary" onclick="createAndSelectUser()" style="white-space:nowrap;">Create &amp; Select</button>
+      </div>
+      <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Letters, numbers, hyphens and underscores only (max 50 chars)</div>
+    </div>
+  </div>
+</div>
+
 <!-- Hidden video element for getUserMedia capture -->
 <video id="raw-camera-video" autoplay playsinline muted style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-999px"></video>
 
 <script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  Active user — set via profile modal before any API calls
+// ══════════════════════════════════════════════════════════════════════════════
+let activeUser = null;
+
+/** Return path with ?username=X appended when a user is active. */
+function apiQ(path) {
+  return activeUser ? `${path}?username=${encodeURIComponent(activeUser)}` : path;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  State
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1206,8 +1251,9 @@ function showToast(msg, type = 'info') {
 //  Stats refresh
 // ══════════════════════════════════════════════════════════════════════════════
 async function refreshStats() {
+  if (!activeUser) return;
   try {
-    const res = await fetch('/api/data/stats');
+    const res = await fetch(apiQ('/api/data/stats'));
     const data = await res.json();
     state.stats = data;
     updateDashboard(data);
@@ -1294,7 +1340,7 @@ function updateTrainTable(data) {
 async function deleteGesture(name) {
   if (!confirm(`Delete all data for gesture "${name}"?`)) return;
   try {
-    const res = await fetch('/api/data/gesture/' + encodeURIComponent(name), { method: 'DELETE' });
+    const res = await fetch(apiQ('/api/data/gesture/' + encodeURIComponent(name)), { method: 'DELETE' });
     if (res.ok) {
       showToast(`Deleted gesture: ${name}`, 'success');
       refreshStats();
@@ -1322,7 +1368,7 @@ async function startRecording() {
     const res = await fetch('/api/record/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gesture_name: name, duration })
+      body: JSON.stringify({ gesture_name: name, duration, username: activeUser || '' })
     });
     if (!res.ok) throw new Error((await res.json()).detail || 'Error');
 
@@ -1468,7 +1514,7 @@ async function startTraining() {
     const res = await fetch('/api/train/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ epochs })
+      body: JSON.stringify({ epochs, username: activeUser || '' })
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1565,7 +1611,7 @@ function updateTrainingUI(data) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function startInference() {
   try {
-    const res = await fetch('/api/inference/start', { method: 'POST' });
+    const res = await fetch(apiQ('/api/inference/start'), { method: 'POST' });
     if (!res.ok) {
       const err = await res.json();
       showToast(err.detail || 'Cannot start movement recognition', 'error');
@@ -1573,7 +1619,7 @@ async function startInference() {
     }
     // Also start audio inference + open mic WebSocket (best-effort)
     try {
-      await fetch('/api/audio/inference/start', { method: 'POST' });
+      await fetch(apiQ('/api/audio/inference/start'), { method: 'POST' });
       await ensureAudioWs();
     } catch(e) { console.warn('Audio inference unavailable:', e); }
 
@@ -1615,8 +1661,9 @@ function initAudioRecordPage() {
 }
 
 async function refreshAudioStats() {
+  if (!activeUser) return;
   try {
-    const res = await fetch('/api/audio/data/stats');
+    const res = await fetch(apiQ('/api/audio/data/stats'));
     const data = await res.json();
     state.audioStats = data;
     updateAudioClassList(data);
@@ -1670,7 +1717,7 @@ function updateAudioTrainTable(data) {
 async function deleteAudioGesture(name) {
   if (!confirm(`Delete all audio data for gesture "${name}"?`)) return;
   try {
-    const res = await fetch('/api/audio/data/gesture/' + encodeURIComponent(name), { method: 'DELETE' });
+    const res = await fetch(apiQ('/api/audio/data/gesture/' + encodeURIComponent(name)), { method: 'DELETE' });
     if (res.ok) { showToast(`Deleted: ${name}`, 'success'); refreshAudioStats(); }
     else showToast('Failed to delete', 'error');
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -1688,7 +1735,7 @@ async function startAudioRecording() {
     const res = await fetch('/api/audio/record/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gesture_name: name, duration })
+      body: JSON.stringify({ gesture_name: name, duration, username: activeUser || '' })
     });
     if (!res.ok) { releaseAudioWs(); throw new Error((await res.json()).detail || 'Error'); }
 
@@ -1775,7 +1822,7 @@ async function startAudioTraining() {
     const res = await fetch('/api/audio/train/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ epochs })
+      body: JSON.stringify({ epochs, username: activeUser || '' })
     });
     if (!res.ok) { showToast((await res.json()).detail || 'Cannot start training', 'error'); return; }
 
@@ -2213,12 +2260,78 @@ function esc(str) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  User Profile Modal
+// ══════════════════════════════════════════════════════════════════════════════
+async function showUserModal() {
+  const modal = document.getElementById('user-modal');
+  modal.style.display = 'flex';
+  document.getElementById('new-username').value = '';
+
+  const listEl = document.getElementById('user-list');
+  listEl.innerHTML = '<div style="color:#6B7280;font-size:13px;text-align:center;padding:16px 0;">Loading profiles…</div>';
+
+  try {
+    const res = await fetch('/api/users');
+    const data = await res.json();
+    if (data.users.length === 0) {
+      listEl.innerHTML = '<div style="color:#6B7280;font-size:13px;text-align:center;padding:16px 0;">No profiles yet. Create one below.</div>';
+    } else {
+      listEl.innerHTML = data.users.map(u =>
+        `<button onclick="selectUser('${esc(u)}')"
+          style="width:100%;text-align:left;padding:12px 16px;background:#F4F6FB;border:1.5px solid ${u===activeUser?'#1C46C0':'#D0D8EE'};border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;color:#060645;transition:all 0.15s;"
+          onmouseover="this.style.background='#DBEAFE';this.style.borderColor='#1C46C0'"
+          onmouseout="this.style.background='${u===activeUser?'#DBEAFE':'#F4F6FB'}';this.style.borderColor='${u===activeUser?'#1C46C0':'#D0D8EE'}'">
+          👤 ${esc(u)} ${u===activeUser?'<span style="float:right;font-size:11px;color:#1C46C0;">Active</span>':''}
+        </button>`
+      ).join('');
+    }
+  } catch(e) {
+    listEl.innerHTML = '<div style="color:#DC2626;font-size:13px;text-align:center;padding:16px 0;">Could not load profiles.</div>';
+  }
+}
+
+function selectUser(username) {
+  activeUser = username;
+  document.getElementById('user-modal').style.display = 'none';
+  document.getElementById('sidebar-username').textContent = username;
+  document.getElementById('topbar-user').textContent = username;
+  refreshStats();
+  refreshAudioStats();
+  showToast(`Profile: ${username}`, 'success');
+  // Start periodic refresh if not already running
+  if (!state.statsRefreshInterval) {
+    state.statsRefreshInterval = setInterval(refreshStats, 3000);
+  }
+}
+
+async function createAndSelectUser() {
+  const input = document.getElementById('new-username');
+  const username = input.value.trim();
+  if (!username) { showToast('Enter a profile name first', 'error'); return; }
+  if (!/^[A-Za-z0-9_-]{1,50}$/.test(username)) {
+    showToast('Use only letters, numbers, - or _ (max 50 chars)', 'error');
+    return;
+  }
+  try {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    if (!res.ok) { showToast((await res.json()).detail || 'Error creating profile', 'error'); return; }
+    input.value = '';
+    selectUser(username);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  Init
 // ══════════════════════════════════════════════════════════════════════════════
 async function init() {
-  // Start stats polling
-  refreshStats();
-  state.statsRefreshInterval = setInterval(refreshStats, 3000);
+  // Show user profile modal first — stats polling begins after a profile is selected
+  showUserModal();
 }
 
 document.addEventListener('DOMContentLoaded', init);

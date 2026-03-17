@@ -1,11 +1,12 @@
 import os
+import re
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,10 +18,10 @@ _frame_executor = ThreadPoolExecutor(max_workers=1)
 
 from .modules.camera import processor
 from .modules.recorder import RecordingSession, DATA_PATH, ensure_csv
-from .modules.trainer import TrainingSession, MODEL_PATH, ENCODER_PATH
+from .modules.trainer import TrainingSession, MODEL_PATH
 from .modules.recognizer import recognizer
 from .modules.audio_recorder import AudioRecordingSession, DATA_PATH as AUDIO_DATA_PATH, ensure_csv as audio_ensure_csv
-from .modules.audio_trainer import AudioTrainingSession, MODEL_PATH as AUDIO_MODEL_PATH, ENCODER_PATH as AUDIO_ENCODER_PATH
+from .modules.audio_trainer import AudioTrainingSession, MODEL_PATH as AUDIO_MODEL_PATH
 from .modules.audio_recognizer import audio_recognizer
 
 import app.modules.recorder as recorder_module
@@ -36,6 +37,36 @@ app.add_middleware(
 
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+BASE_DATA = Path(__file__).parent.parent / "data"
+
+# ─── User helpers ─────────────────────────────────────────────────────────────
+
+_USERNAME_RE = re.compile(r'^[A-Za-z0-9_-]{1,50}$')
+
+def _validate_username(username: str) -> str:
+    if not username or not _USERNAME_RE.match(username):
+        raise HTTPException(
+            400,
+            "Invalid username. Use letters, numbers, hyphens or underscores (max 50 chars)."
+        )
+    return username
+
+def _user_dir(username: str) -> Path:
+    return BASE_DATA / "users" / username
+
+def _user_paths(username: str) -> dict:
+    d = _user_dir(username)
+    return {
+        "data_dir":      d,
+        "models_dir":    d / "models",
+        "gestures_csv":  d / "gestures.csv",
+        "audio_csv":     d / "audio_gestures.csv",
+        "mv_model":      d / "models" / "movement_model.h5",
+        "mv_encoder":    d / "models" / "label_encoder.pkl",
+        "au_model":      d / "models" / "audio_model.h5",
+        "au_encoder":    d / "models" / "audio_label_encoder.pkl",
+    }
 
 
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
@@ -56,9 +87,29 @@ async def index():
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 
+# ─── User management ──────────────────────────────────────────────────────────
+
+class UserRequest(BaseModel):
+    username: str
+
+@app.get("/api/users")
+async def list_users():
+    users_dir = BASE_DATA / "users"
+    if not users_dir.exists():
+        return {"users": []}
+    users = sorted(d.name for d in users_dir.iterdir() if d.is_dir())
+    return {"users": users}
+
+@app.post("/api/users")
+async def create_user(req: UserRequest):
+    username = _validate_username(req.username.strip())
+    p = _user_paths(username)
+    p["data_dir"].mkdir(parents=True, exist_ok=True)
+    p["models_dir"].mkdir(parents=True, exist_ok=True)
+    return {"username": username, "status": "ok"}
+
+
 # ─── WebSocket: camera frames ─────────────────────────────────────────────────
-# Browser sends raw JPEG bytes → backend runs MediaPipe → sends annotated JPEG back.
-# This avoids all macOS camera permission issues in the backend process.
 
 @app.websocket("/ws/camera")
 async def camera_ws(websocket: WebSocket):
@@ -67,7 +118,6 @@ async def camera_ws(websocket: WebSocket):
     try:
         while True:
             raw_jpeg = await websocket.receive_bytes()
-            # Run blocking MediaPipe work in a thread; returns JSON bytes (landmark positions)
             landmark_json = await loop.run_in_executor(_frame_executor, processor.process, raw_jpeg)
             await websocket.send_bytes(landmark_json)
     except WebSocketDisconnect:
@@ -79,29 +129,45 @@ async def camera_ws(websocket: WebSocket):
 # ─── Data ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/data/stats")
-async def data_stats():
-    ensure_csv()
-    if not DATA_PATH.exists() or DATA_PATH.stat().st_size < 10:
+async def data_stats(username: str = Query(default="")):
+    if username:
+        _validate_username(username)
+        p = _user_paths(username)
+        csv_path   = p["gestures_csv"]
+        model_path = p["mv_model"]
+        ensure_csv(csv_path)
+    else:
+        csv_path   = DATA_PATH
+        model_path = MODEL_PATH
+        ensure_csv()
+
+    if not csv_path.exists() or csv_path.stat().st_size < 10:
         return {"total_rows": 0, "classes": {}, "model_trained": False}
     try:
-        df = pd.read_csv(DATA_PATH)
+        df = pd.read_csv(csv_path)
         class_counts = df.groupby("class")["sequence_id"].nunique().to_dict()
         return {
             "total_rows": len(df),
             "classes": class_counts,
-            "model_trained": MODEL_PATH.exists(),
+            "model_trained": model_path.exists(),
         }
     except Exception as e:
         return {"total_rows": 0, "classes": {}, "model_trained": False, "error": str(e)}
 
 
 @app.delete("/api/data/gesture/{gesture_name}")
-async def delete_gesture(gesture_name: str):
-    if not DATA_PATH.exists():
+async def delete_gesture(gesture_name: str, username: str = Query(default="")):
+    if username:
+        _validate_username(username)
+        csv_path = _user_paths(username)["gestures_csv"]
+    else:
+        csv_path = DATA_PATH
+
+    if not csv_path.exists():
         raise HTTPException(404, "No data file found")
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_csv(csv_path)
     df = df[df["class"] != gesture_name]
-    df.to_csv(DATA_PATH, index=False)
+    df.to_csv(csv_path, index=False)
     return {"status": "deleted", "gesture": gesture_name}
 
 
@@ -110,13 +176,20 @@ async def delete_gesture(gesture_name: str):
 class RecordRequest(BaseModel):
     gesture_name: str
     duration: int = 60
+    username: str = ""
 
 
 @app.post("/api/record/start")
 async def start_recording(req: RecordRequest):
     if not req.gesture_name.strip():
         raise HTTPException(400, "Gesture name required")
-    session = RecordingSession(req.gesture_name.strip(), req.duration)
+
+    data_path = None
+    if req.username:
+        _validate_username(req.username)
+        data_path = _user_paths(req.username)["gestures_csv"]
+
+    session = RecordingSession(req.gesture_name.strip(), req.duration, data_path=data_path)
     recorder_module.current_session = session
     processor.landmark_callback = session.add_landmark
     processor.mode = "recording"
@@ -152,13 +225,23 @@ async def record_status():
 
 class TrainRequest(BaseModel):
     epochs: int = 50
+    username: str = ""
 
 
 @app.post("/api/train/start")
 async def start_training(req: TrainRequest):
     if trainer_module.current_training and trainer_module.current_training.status == "running":
         raise HTTPException(409, "Training already in progress")
-    session = TrainingSession(req.epochs)
+
+    data_path = None
+    model_dir = None
+    if req.username:
+        _validate_username(req.username)
+        p = _user_paths(req.username)
+        data_path = p["gestures_csv"]
+        model_dir = p["models_dir"]
+
+    session = TrainingSession(req.epochs, data_path=data_path, model_dir=model_dir)
     trainer_module.current_training = session
     session.start()
     return {"status": "started"}
@@ -182,9 +265,14 @@ async def train_status():
 # ─── Inference ────────────────────────────────────────────────────────────────
 
 @app.post("/api/inference/start")
-async def start_inference():
+async def start_inference(username: str = Query(default="")):
     try:
-        recognizer.load()
+        if username:
+            _validate_username(username)
+            p = _user_paths(username)
+            recognizer.load(model_path=p["mv_model"], encoder_path=p["mv_encoder"])
+        else:
+            recognizer.load()
         processor.mode = "inference"
         processor.landmark_callback = recognizer.add_frame
         return {"status": "started"}
@@ -209,13 +297,10 @@ async def get_prediction():
 
 
 # ─── WebSocket: browser mic audio ────────────────────────────────────────────
-# Browser captures mic at 22050 Hz and streams Float32 PCM via WebSocket.
-# Backend routes chunks to the active recording session or the audio recognizer.
 
 @app.websocket("/ws/audio")
 async def audio_ws(websocket: WebSocket):
     await websocket.accept()
-    loop = asyncio.get_event_loop()
     try:
         while True:
             raw = await websocket.receive_bytes()
@@ -238,29 +323,45 @@ async def audio_ws(websocket: WebSocket):
 # ─── Audio Data ───────────────────────────────────────────────────────────────
 
 @app.get("/api/audio/data/stats")
-async def audio_data_stats():
-    audio_ensure_csv()
-    if not AUDIO_DATA_PATH.exists() or AUDIO_DATA_PATH.stat().st_size < 10:
+async def audio_data_stats(username: str = Query(default="")):
+    if username:
+        _validate_username(username)
+        p = _user_paths(username)
+        csv_path   = p["audio_csv"]
+        model_path = p["au_model"]
+        audio_ensure_csv(csv_path)
+    else:
+        csv_path   = AUDIO_DATA_PATH
+        model_path = AUDIO_MODEL_PATH
+        audio_ensure_csv()
+
+    if not csv_path.exists() or csv_path.stat().st_size < 10:
         return {"total_rows": 0, "classes": {}, "model_trained": False}
     try:
-        df = pd.read_csv(AUDIO_DATA_PATH)
+        df = pd.read_csv(csv_path)
         class_counts = df.groupby("class")["sequence_id"].nunique().to_dict()
         return {
             "total_rows": len(df),
             "classes": class_counts,
-            "model_trained": AUDIO_MODEL_PATH.exists(),
+            "model_trained": model_path.exists(),
         }
     except Exception as e:
         return {"total_rows": 0, "classes": {}, "model_trained": False, "error": str(e)}
 
 
 @app.delete("/api/audio/data/gesture/{gesture_name}")
-async def delete_audio_gesture(gesture_name: str):
-    if not AUDIO_DATA_PATH.exists():
+async def delete_audio_gesture(gesture_name: str, username: str = Query(default="")):
+    if username:
+        _validate_username(username)
+        csv_path = _user_paths(username)["audio_csv"]
+    else:
+        csv_path = AUDIO_DATA_PATH
+
+    if not csv_path.exists():
         raise HTTPException(404, "No audio data file found")
-    df = pd.read_csv(AUDIO_DATA_PATH)
+    df = pd.read_csv(csv_path)
     df = df[df["class"] != gesture_name]
-    df.to_csv(AUDIO_DATA_PATH, index=False)
+    df.to_csv(csv_path, index=False)
     return {"status": "deleted", "gesture": gesture_name}
 
 
@@ -269,13 +370,20 @@ async def delete_audio_gesture(gesture_name: str):
 class AudioRecordRequest(BaseModel):
     gesture_name: str
     duration: int = 10
+    username: str = ""
 
 
 @app.post("/api/audio/record/start")
 async def start_audio_recording(req: AudioRecordRequest):
     if not req.gesture_name.strip():
         raise HTTPException(400, "Gesture name required")
-    session = AudioRecordingSession(req.gesture_name.strip(), req.duration)
+
+    data_path = None
+    if req.username:
+        _validate_username(req.username)
+        data_path = _user_paths(req.username)["audio_csv"]
+
+    session = AudioRecordingSession(req.gesture_name.strip(), req.duration, data_path=data_path)
     audio_recorder_module.current_session = session
     session.start()
     return {"status": "recording", "gesture": req.gesture_name, "duration": req.duration}
@@ -307,13 +415,23 @@ async def audio_record_status():
 
 class AudioTrainRequest(BaseModel):
     epochs: int = 50
+    username: str = ""
 
 
 @app.post("/api/audio/train/start")
 async def start_audio_training(req: AudioTrainRequest):
     if audio_trainer_module.current_training and audio_trainer_module.current_training.status == "running":
         raise HTTPException(409, "Audio training already in progress")
-    session = AudioTrainingSession(req.epochs)
+
+    data_path = None
+    model_dir = None
+    if req.username:
+        _validate_username(req.username)
+        p = _user_paths(req.username)
+        data_path = p["audio_csv"]
+        model_dir = p["models_dir"]
+
+    session = AudioTrainingSession(req.epochs, data_path=data_path, model_dir=model_dir)
     audio_trainer_module.current_training = session
     session.start()
     return {"status": "started"}
@@ -337,9 +455,14 @@ async def audio_train_status():
 # ─── Audio Inference ──────────────────────────────────────────────────────────
 
 @app.post("/api/audio/inference/start")
-async def start_audio_inference():
+async def start_audio_inference(username: str = Query(default="")):
     try:
-        audio_recognizer.load()
+        if username:
+            _validate_username(username)
+            p = _user_paths(username)
+            audio_recognizer.load(model_path=p["au_model"], encoder_path=p["au_encoder"])
+        else:
+            audio_recognizer.load()
         audio_recognizer.start()
         return {"status": "started"}
     except FileNotFoundError as e:

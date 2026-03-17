@@ -24,12 +24,14 @@ class Recognizer:
         self._lock = threading.Lock()
         self._last_predict_time = 0.0
 
-    def load(self):
-        if not MODEL_PATH.exists():
+    def load(self, model_path: Path = None, encoder_path: Path = None):
+        mp = model_path or MODEL_PATH
+        ep = encoder_path or ENCODER_PATH
+        if not mp.exists():
             raise FileNotFoundError("No trained model found. Train a model first.")
-        self.model = load_model(MODEL_PATH)
-        self.le = joblib.load(ENCODER_PATH)
-        
+        self.model = load_model(mp)
+        self.le = joblib.load(ep)
+
         # Dynamically set window size based on trained model's expected shape
         try:
             expected_length = self.model.input_shape[1]
@@ -55,7 +57,7 @@ class Recognizer:
     def _predict(self, snapshot):
         # Runs outside the lock so get_prediction() is never blocked by TF inference
         seq = np.array(snapshot, dtype='float32')
-        # Apply the same angle normalization used during training (trainer.py line 66)
+        # Apply the same angle normalization used during training (trainer.py)
         seq[:, ANGLE_COLS] /= 180.0
         X = pad_sequences([seq], padding='post', dtype='float32', value=-1.0)
         probs = self.model.predict(X, verbose=0)[0]

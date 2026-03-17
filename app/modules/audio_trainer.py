@@ -14,8 +14,12 @@ ENCODER_PATH = MODEL_DIR / "audio_label_encoder.pkl"
 
 
 class AudioTrainingSession:
-    def __init__(self, epochs: int = 50):
+    def __init__(self, epochs: int = 50, data_path: Path = None, model_dir: Path = None):
         self.epochs         = epochs
+        self._data_path     = data_path or DATA_PATH
+        self._model_dir     = model_dir or MODEL_DIR
+        self._model_path    = self._model_dir / "audio_model.h5"
+        self._encoder_path  = self._model_dir / "audio_label_encoder.pkl"
         self.status         = "idle"
         self.progress       = 0.0
         self.logs           = []
@@ -37,7 +41,7 @@ class AudioTrainingSession:
             from tensorflow.keras.callbacks import Callback
 
             self.logs.append("Loading audio data...")
-            df = pd.read_csv(DATA_PATH)
+            df = pd.read_csv(self._data_path)
             if len(df) < 10:
                 raise ValueError("Not enough data. Record more audio gestures first.")
 
@@ -121,9 +125,9 @@ class AudioTrainingSession:
                 callbacks=[_CB()], verbose=0
             )
 
-            MODEL_DIR.mkdir(parents=True, exist_ok=True)
-            model.save(MODEL_PATH)
-            joblib.dump(le, ENCODER_PATH)
+            self._model_dir.mkdir(parents=True, exist_ok=True)
+            model.save(self._model_path)
+            joblib.dump(le, self._encoder_path)
 
             _, acc = model.evaluate(X_test, y_test, verbose=0)
             self.final_accuracy = float(acc)

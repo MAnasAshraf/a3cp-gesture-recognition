@@ -27,12 +27,14 @@ class AudioRecognizer:
         self._active    = False
         self._seq_len   = None
 
-    def load(self):
+    def load(self, model_path: Path = None, encoder_path: Path = None):
         from tensorflow.keras.models import load_model
-        if not MODEL_PATH.exists():
+        mp = model_path or MODEL_PATH
+        ep = encoder_path or ENCODER_PATH
+        if not mp.exists():
             raise FileNotFoundError("No audio model found. Train an audio model first.")
-        self.model = load_model(MODEL_PATH)
-        self.le    = joblib.load(ENCODER_PATH)
+        self.model = load_model(mp)
+        self.le    = joblib.load(ep)
         try:
             self._seq_len = self.model.input_shape[1]
         except Exception:
