@@ -120,17 +120,23 @@ async def import_legacy(username: str):
 
     copied = []
 
+    def _has_data(path: Path) -> bool:
+        """Return True only if CSV has at least one data row (beyond the header)."""
+        if not path.exists():
+            return False
+        with open(path) as f:
+            f.readline()          # skip header
+            return bool(f.readline().strip())   # True if there's a data row
+
     legacy_gestures = BASE_DATA / "gestures.csv"
-    if legacy_gestures.exists() and legacy_gestures.stat().st_size > 10:
-        if not p["gestures_csv"].exists() or p["gestures_csv"].stat().st_size < 10:
-            shutil.copy2(legacy_gestures, p["gestures_csv"])
-            copied.append("gestures.csv")
+    if _has_data(legacy_gestures) and not _has_data(p["gestures_csv"]):
+        shutil.copy2(legacy_gestures, p["gestures_csv"])
+        copied.append("gestures.csv")
 
     legacy_audio = BASE_DATA / "audio_gestures.csv"
-    if legacy_audio.exists() and legacy_audio.stat().st_size > 10:
-        if not p["audio_csv"].exists() or p["audio_csv"].stat().st_size < 10:
-            shutil.copy2(legacy_audio, p["audio_csv"])
-            copied.append("audio_gestures.csv")
+    if _has_data(legacy_audio) and not _has_data(p["audio_csv"]):
+        shutil.copy2(legacy_audio, p["audio_csv"])
+        copied.append("audio_gestures.csv")
 
     legacy_models = {
         "movement_model.h5":      BASE_DATA / "models" / "movement_model.h5",
