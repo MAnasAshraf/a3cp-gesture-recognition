@@ -607,12 +607,21 @@
       <div class="nav-item active" onclick="loadPage('dashboard')">
         <span class="nav-icon">⬡</span> Dashboard
       </div>
+      <div class="nav-label" style="margin-top:12px;">Movement</div>
       <div class="nav-item" onclick="loadPage('record')">
         <span class="nav-icon">⏺</span> Record
       </div>
       <div class="nav-item" onclick="loadPage('train')">
         <span class="nav-icon">⚙</span> Train
       </div>
+      <div class="nav-label" style="margin-top:12px;">Audio</div>
+      <div class="nav-item" onclick="loadPage('audio-record')">
+        <span class="nav-icon">🎙</span> Audio Record
+      </div>
+      <div class="nav-item" onclick="loadPage('audio-train')">
+        <span class="nav-icon">🔊</span> Audio Train
+      </div>
+      <div class="nav-label" style="margin-top:12px;">Recognition</div>
       <div class="nav-item" onclick="loadPage('recognize')">
         <span class="nav-icon">◉</span> Recognize
       </div>
@@ -649,10 +658,10 @@
 
       <div class="hero">
         <div class="hero-title">
-          Real-Time<br/><span class="gradient-text">Gesture Recognition</span>
+          Multimodal<br/><span class="gradient-text">Assistive Communication</span>
         </div>
         <p class="hero-sub">
-          Record gestures, train a neural network, and recognize movements in real-time — all from your browser.
+          Record gestures and sounds, train a neural network, and communicate in real-time — all from your browser.
         </p>
         <div class="hero-actions">
           <button class="btn btn-gradient btn-lg" onclick="loadPage('record')">⏺ Start Recording</button>
@@ -902,6 +911,124 @@
     </div><!-- /train -->
 
 
+    <!-- ══ AUDIO RECORD ═══════════════════════════════════════════════════════ -->
+    <div id="page-audio-record" class="page">
+      <div class="mb-6">
+        <div class="section-title">🎙 Record Audio Gesture</div>
+        <div class="section-sub">Use your microphone to record audio for each gesture class. Speak or make sounds naturally during the recording.</div>
+      </div>
+      <div class="grid-2">
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="card" style="padding:24px;">
+            <div class="form-group">
+              <label class="form-label">Gesture / Sound Name</label>
+              <input type="text" id="arec-gesture-name" class="form-input" placeholder="e.g. yes, no, dad, clap" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duration: <span id="arec-dur-val" style="color:#1C46C0;font-weight:700;">10s</span></label>
+              <input type="range" id="arec-duration" min="5" max="60" value="10" oninput="document.getElementById('arec-dur-val').textContent=this.value+'s'" />
+              <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                <span class="text-sm text-muted">5s</span><span class="text-sm text-muted">60s</span>
+              </div>
+            </div>
+            <button id="arec-start-btn" class="btn btn-gradient w-full" onclick="startAudioRecording()">🎙 Start Recording</button>
+            <button id="arec-stop-btn" class="btn btn-danger w-full mt-3 hidden" onclick="stopAudioRecording()">⏹ Stop Recording</button>
+          </div>
+          <div class="card" id="arec-progress-card" style="padding:20px;display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span class="text-sm font-bold">Progress</span>
+              <span class="text-sm" id="arec-progress-pct" style="color:#1C46C0;">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="arec-progress-bar" style="width:0%;"></div></div>
+          </div>
+          <div class="card" id="arec-status-card" style="padding:20px;display:none;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Status</div>
+            <div id="arec-status-badge"><span class="badge badge-muted">Idle</span></div>
+            <div id="arec-status-msg" class="text-sm text-secondary mt-3"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Audio Dataset</span>
+              <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="refreshAudioStats()">↺ Refresh</button>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div id="arec-class-list"><div class="empty-state"><div class="empty-state-icon">🎙</div><div class="empty-state-text">No audio gestures recorded yet</div></div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div class="card-title mb-3">Tips</div>
+            <ul style="font-size:13px;color:var(--text2);line-height:2;padding-left:20px;">
+              <li>Record each gesture/sound class separately</li>
+              <li>Repeat the sound naturally throughout the recording</li>
+              <li>Record at least 2 classes for training</li>
+              <li>Aim for 10–30 seconds per class</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div><!-- /audio-record -->
+
+
+    <!-- ══ AUDIO TRAIN ════════════════════════════════════════════════════════ -->
+    <div id="page-audio-train" class="page">
+      <div class="mb-6">
+        <div class="section-title">🔊 Train Audio Model</div>
+        <div class="section-sub">Train an LSTM model on your recorded audio data. Requires at least 2 audio gesture classes.</div>
+      </div>
+      <div class="grid-2 mb-6">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Audio Dataset Overview</span>
+            <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="refreshAudioStats()">↺ Refresh</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div id="atrain-class-table"><div class="empty-state" style="padding:32px;"><div class="empty-state-icon">🎙</div><div class="empty-state-text">No audio data yet.</div></div></div>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;">
+          <div class="form-group">
+            <label class="form-label">Epochs: <span id="atrain-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+            <input type="range" id="atrain-epochs" min="10" max="100" value="50" oninput="document.getElementById('atrain-epoch-val').textContent=this.value" />
+            <div style="display:flex;justify-content:space-between;margin-top:6px;">
+              <span class="text-sm text-muted">10</span><span class="text-sm text-muted">100</span>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <button id="atrain-btn" class="btn btn-gradient w-full" onclick="startAudioTraining()">🔊 Train Audio Model</button>
+          <div class="mt-4 text-sm text-secondary" style="line-height:1.6;">LSTM trained on MFCC + spectral audio features (43 features per window).</div>
+        </div>
+      </div>
+      <div id="atrain-progress-section" style="display:none;">
+        <div class="card mb-6" style="padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <span class="font-bold">Training Progress</span>
+            <div id="atrain-status-badge"><span class="badge badge-blue">Running</span></div>
+          </div>
+          <div class="progress-track" style="height:12px;"><div class="progress-fill" id="atrain-progress-bar" style="width:0%;"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <span class="text-sm text-muted" id="atrain-epoch-progress">Epoch 0</span>
+            <span class="text-sm" id="atrain-progress-pct" style="color:#1C46C0;">0%</span>
+          </div>
+        </div>
+        <div class="grid-2 mb-6">
+          <div class="card" style="padding:20px;"><div class="card-title mb-4">Accuracy</div><canvas id="chart-audio-accuracy" height="180"></canvas></div>
+          <div class="card" style="padding:20px;"><div class="card-title mb-4">Loss</div><canvas id="chart-audio-loss" height="180"></canvas></div>
+        </div>
+        <div class="card mb-6" style="padding:20px;">
+          <div class="card-title mb-4">Training Log</div>
+          <div class="log-console" id="atrain-log"></div>
+        </div>
+        <div id="atrain-result-card" class="card" style="padding:36px;text-align:center;display:none;">
+          <div class="text-sm text-secondary mb-2" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Final Test Accuracy</div>
+          <div class="accuracy-big" id="atrain-final-acc">—</div>
+          <div class="text-secondary mt-3" id="atrain-final-msg"></div>
+        </div>
+      </div>
+    </div><!-- /audio-train -->
+
+
     <!-- ══ RECOGNIZE ══════════════════════════════════════════════════════ -->
     <div id="page-recognize" class="page">
 
@@ -932,18 +1059,30 @@
         <!-- Prediction panel -->
         <div style="display:flex;flex-direction:column;gap:16px;">
 
-          <div class="card" style="padding:28px;">
-            <div class="text-sm text-muted mb-3" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Current Gesture</div>
+          <!-- Fused result -->
+          <div class="card" style="padding:28px;border:2px solid #1C46C0;">
+            <div class="text-sm text-muted mb-3" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Fused Prediction</div>
             <div class="prediction-big" id="inf-class">—</div>
-
             <div style="margin-top:16px;">
               <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
                 <span class="text-sm text-secondary">Confidence</span>
                 <span class="text-sm font-bold" id="inf-conf-text" style="color:#1C46C0;">0%</span>
               </div>
-              <div class="conf-bar-track">
-                <div class="conf-bar-fill" id="inf-conf-bar" style="width:0%;"></div>
-              </div>
+              <div class="conf-bar-track"><div class="conf-bar-fill" id="inf-conf-bar" style="width:0%;"></div></div>
+            </div>
+          </div>
+
+          <!-- Movement + Audio side by side -->
+          <div class="grid-2">
+            <div class="card" style="padding:18px;">
+              <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">👁 Movement</div>
+              <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-mv-class">—</div>
+              <div class="text-sm text-muted mt-1" id="inf-mv-conf">0%</div>
+            </div>
+            <div class="card" style="padding:18px;">
+              <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">🎙 Audio</div>
+              <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-au-class">—</div>
+              <div class="text-sm text-muted mt-1" id="inf-au-conf">0%</div>
             </div>
           </div>
 
@@ -979,22 +1118,30 @@ const state = {
   recPollInterval: null,
   trainPollInterval: null,
   infPollInterval: null,
+  arecPollInterval: null,
+  atrainPollInterval: null,
   recRecording: false,
   infRunning: false,
   recentPredictions: [],
   chartAcc: null,
   chartLoss: null,
-  stats: { total_rows: 0, classes: {}, model_trained: false }
+  chartAudioAcc: null,
+  chartAudioLoss: null,
+  stats: { total_rows: 0, classes: {}, model_trained: false },
+  audioStats: { total_rows: 0, classes: {}, model_trained: false },
+  fusionMode: false   // true when both movement + audio inference running
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  Navigation
 // ══════════════════════════════════════════════════════════════════════════════
 const PAGE_META = {
-  dashboard: { title: 'Dashboard', sub: 'Overview of your gesture recognition system' },
-  record:    { title: '⏺ Record Gesture', sub: 'Capture gesture data with your webcam' },
-  train:     { title: '⚙ Train Model', sub: 'Train an LSTM neural network on your data' },
-  recognize: { title: '◉ Live Recognition', sub: 'Real-time gesture recognition' }
+  dashboard:    { title: 'Dashboard', sub: 'Overview of your gesture recognition system' },
+  record:       { title: '⏺ Record Gesture', sub: 'Capture gesture data with your webcam' },
+  train:        { title: '⚙ Train Model', sub: 'Train an LSTM neural network on your data' },
+  'audio-record': { title: '🎙 Audio Record', sub: 'Record audio gesture data with your microphone' },
+  'audio-train':  { title: '🔊 Audio Train', sub: 'Train an LSTM model on your audio gesture data' },
+  recognize:    { title: '◉ Live Recognition', sub: 'Real-time fusion of movement + audio recognition' }
 };
 
 function loadPage(name) {
@@ -1032,6 +1179,8 @@ function loadPage(name) {
   // Page-specific init
   if (name === 'record') initRecordPage();
   if (name === 'train') initTrainPage();
+  if (name === 'audio-record') initAudioRecordPage();
+  if (name === 'audio-train') initAudioTrainPage();
 
   // Close mobile sidebar
   document.getElementById('sidebar').classList.remove('open');
@@ -1419,9 +1568,15 @@ async function startInference() {
     const res = await fetch('/api/inference/start', { method: 'POST' });
     if (!res.ok) {
       const err = await res.json();
-      showToast(err.detail || 'Cannot start recognition', 'error');
+      showToast(err.detail || 'Cannot start movement recognition', 'error');
       return;
     }
+    // Also start audio inference + open mic WebSocket (best-effort)
+    try {
+      await fetch('/api/audio/inference/start', { method: 'POST' });
+      await ensureAudioWs();
+    } catch(e) { console.warn('Audio inference unavailable:', e); }
+
     state.infRunning = true;
     document.getElementById('inf-start-btn').classList.add('hidden');
     document.getElementById('inf-stop-btn').classList.remove('hidden');
@@ -1436,35 +1591,281 @@ async function startInference() {
 async function stopInference() {
   clearInterval(state.infPollInterval);
   await fetch('/api/inference/stop', { method: 'POST' });
+  try {
+    await fetch('/api/audio/inference/stop', { method: 'POST' });
+    releaseAudioWs();
+  } catch(e) {}
   state.infRunning = false;
   document.getElementById('inf-start-btn').classList.remove('hidden');
   document.getElementById('inf-stop-btn').classList.add('hidden');
   document.getElementById('inf-live-badge').classList.add('hidden');
   document.getElementById('inf-class').textContent = '—';
+  document.getElementById('inf-mv-class').textContent = '—';
+  document.getElementById('inf-au-class').textContent = '—';
   document.getElementById('inf-conf-bar').style.width = '0%';
   document.getElementById('inf-conf-text').textContent = '0%';
   showToast('Recognition stopped', 'info');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  AUDIO RECORD PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function initAudioRecordPage() {
+  refreshAudioStats();
+}
+
+async function refreshAudioStats() {
+  try {
+    const res = await fetch('/api/audio/data/stats');
+    const data = await res.json();
+    state.audioStats = data;
+    updateAudioClassList(data);
+    updateAudioTrainTable(data);
+  } catch(e) {}
+}
+
+function updateAudioClassList(data) {
+  const el = document.getElementById('arec-class-list');
+  if (!el) return;
+  if (Object.keys(data.classes).length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎙</div><div class="empty-state-text">No audio gestures recorded yet</div></div>';
+    return;
+  }
+  let html = '<table class="data-table"><thead><tr><th>Gesture</th><th>Windows</th><th></th></tr></thead><tbody>';
+  for (const [cls, cnt] of Object.entries(data.classes)) {
+    html += `<tr>
+      <td><span style="font-weight:600;">${esc(cls)}</span></td>
+      <td><span class="badge badge-blue">${cnt}</span></td>
+      <td><button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="deleteAudioGesture('${esc(cls)}')">Delete</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function updateAudioTrainTable(data) {
+  const el = document.getElementById('atrain-class-table');
+  if (!el) return;
+  if (Object.keys(data.classes).length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px;"><div class="empty-state-icon">🎙</div><div class="empty-state-text">No audio data yet.</div></div>';
+    return;
+  }
+  let html = '<table class="data-table"><thead><tr><th>Gesture</th><th>Windows</th></tr></thead><tbody>';
+  for (const [cls, cnt] of Object.entries(data.classes)) {
+    const bar = Math.min(100, (cnt / Math.max(...Object.values(data.classes))) * 100);
+    html += `<tr>
+      <td><span style="font-weight:600;">${esc(cls)}</span></td>
+      <td><div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge badge-blue">${cnt}</span>
+        <div style="flex:1;height:6px;background:#E8EDF7;border-radius:3px;overflow:hidden;">
+          <div style="width:${bar}%;height:100%;background:linear-gradient(90deg,#1C46C0,#060645);border-radius:3px;"></div>
+        </div>
+      </div></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+async function deleteAudioGesture(name) {
+  if (!confirm(`Delete all audio data for gesture "${name}"?`)) return;
+  try {
+    const res = await fetch('/api/audio/data/gesture/' + encodeURIComponent(name), { method: 'DELETE' });
+    if (res.ok) { showToast(`Deleted: ${name}`, 'success'); refreshAudioStats(); }
+    else showToast('Failed to delete', 'error');
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function startAudioRecording() {
+  const name = document.getElementById('arec-gesture-name').value.trim();
+  if (!name) { showToast('Enter a gesture name first', 'error'); return; }
+  const duration = parseInt(document.getElementById('arec-duration').value);
+
+  try {
+    // Open mic + audio WebSocket BEFORE telling the server to start recording
+    await ensureAudioWs();
+
+    const res = await fetch('/api/audio/record/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gesture_name: name, duration })
+    });
+    if (!res.ok) { releaseAudioWs(); throw new Error((await res.json()).detail || 'Error'); }
+
+    document.getElementById('arec-start-btn').disabled = true;
+    document.getElementById('arec-stop-btn').classList.remove('hidden');
+    document.getElementById('arec-progress-card').style.display = 'block';
+    document.getElementById('arec-status-card').style.display = 'block';
+    setArecStatus('recording', 0, '');
+    showToast(`Recording audio "${name}" for ${duration}s`, 'info');
+    state.arecPollInterval = setInterval(pollAudioRecording, 500);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function stopAudioRecording() {
+  await fetch('/api/audio/record/stop', { method: 'POST' });
+  clearInterval(state.arecPollInterval);
+  releaseAudioWs();
+  setTimeout(pollAudioRecording, 600);
+}
+
+async function pollAudioRecording() {
+  try {
+    const res = await fetch('/api/audio/record/status');
+    const data = await res.json();
+    setArecStatus(data.status, data.progress, data.message);
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(state.arecPollInterval);
+      document.getElementById('arec-start-btn').disabled = false;
+      document.getElementById('arec-stop-btn').classList.add('hidden');
+      if (data.status === 'done') { showToast(data.message || 'Audio saved!', 'success'); refreshAudioStats(); }
+      else showToast(data.message || 'Recording error', 'error');
+    }
+  } catch(e) {}
+}
+
+function setArecStatus(status, progress, message) {
+  const pct = Math.round(progress);
+  document.getElementById('arec-progress-bar').style.width = pct + '%';
+  document.getElementById('arec-progress-pct').textContent = pct + '%';
+  const badges = {
+    idle:       '<span class="badge badge-muted">Idle</span>',
+    recording:  '<span class="badge badge-red"><span class="live-dot" style="display:inline-block;"></span> Recording</span>',
+    processing: '<span class="badge badge-amber">Processing...</span>',
+    done:       '<span class="badge badge-green">✓ Done</span>',
+    error:      '<span class="badge badge-red">✕ Error</span>'
+  };
+  document.getElementById('arec-status-badge').innerHTML = badges[status] || badges.idle;
+  document.getElementById('arec-status-msg').textContent = message;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  AUDIO TRAIN PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function initAudioTrainPage() {
+  refreshAudioStats();
+  initAudioCharts();
+}
+
+function initAudioCharts() {
+  if (state.chartAudioAcc) { state.chartAudioAcc.destroy(); state.chartAudioAcc = null; }
+  if (state.chartAudioLoss) { state.chartAudioLoss.destroy(); state.chartAudioLoss = null; }
+
+  const mkOpts = (l1, l2, c1, c2, minY) => ({
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: l1, data: [], borderColor: c1, backgroundColor: c1+'22', borderWidth:2, tension:0.4, fill:true, pointRadius:2 },
+      { label: l2, data: [], borderColor: c2, backgroundColor: c2+'18', borderWidth:2, tension:0.4, fill:true, pointRadius:2, borderDash:[6,3] }
+    ]},
+    options: { responsive:true, animation:{duration:200},
+      plugins:{ legend:{labels:{color:'#94a3b8',font:{family:'Inter',size:12},boxWidth:20,padding:16}} },
+      scales:{ x:{ticks:{color:'#475569',font:{size:11}},grid:{color:'rgba(0,0,0,0.04)'}},
+               y:{ticks:{color:'#475569',font:{size:11}},grid:{color:'rgba(0,0,0,0.04)'},min:minY} } }
+  });
+
+  state.chartAudioAcc  = new Chart(document.getElementById('chart-audio-accuracy'), mkOpts('Train Acc','Val Acc','#6366f1','#22d3ee',0));
+  state.chartAudioLoss = new Chart(document.getElementById('chart-audio-loss'),     mkOpts('Train Loss','Val Loss','#f59e0b','#ef4444',0));
+}
+
+async function startAudioTraining() {
+  const epochs = parseInt(document.getElementById('atrain-epochs').value);
+  try {
+    const res = await fetch('/api/audio/train/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ epochs })
+    });
+    if (!res.ok) { showToast((await res.json()).detail || 'Cannot start training', 'error'); return; }
+
+    document.getElementById('atrain-btn').disabled = true;
+    document.getElementById('atrain-progress-section').style.display = 'block';
+    document.getElementById('atrain-result-card').style.display = 'none';
+    document.getElementById('atrain-log').innerHTML = '';
+    initAudioCharts();
+    showToast(`Audio training started (${epochs} epochs)`, 'info');
+    state.atrainPollInterval = setInterval(pollAudioTraining, 1000);
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function pollAudioTraining() {
+  try {
+    const res = await fetch('/api/audio/train/status');
+    const data = await res.json();
+    updateAudioTrainingUI(data);
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(state.atrainPollInterval);
+      document.getElementById('atrain-btn').disabled = false;
+      if (data.status === 'done') {
+        showToast(data.message || 'Audio training complete!', 'success');
+        document.getElementById('atrain-result-card').style.display = 'block';
+        document.getElementById('atrain-final-acc').textContent = data.final_accuracy !== null ? (data.final_accuracy*100).toFixed(1)+'%' : '—';
+        document.getElementById('atrain-final-msg').textContent = data.message;
+      } else {
+        showToast(data.message || 'Training failed', 'error');
+      }
+    }
+  } catch(e) {}
+}
+
+function updateAudioTrainingUI(data) {
+  const pct = Math.round(data.progress);
+  document.getElementById('atrain-progress-bar').style.width = pct + '%';
+  document.getElementById('atrain-progress-pct').textContent = pct + '%';
+  const epochs = parseInt(document.getElementById('atrain-epochs').value);
+  document.getElementById('atrain-epoch-progress').textContent = `Epoch ${Math.round(pct/100*epochs)} / ${epochs}`;
+
+  const badges = { running:'<span class="badge badge-blue">⟳ Running</span>', done:'<span class="badge badge-green">✓ Done</span>', error:'<span class="badge badge-red">✕ Error</span>' };
+  document.getElementById('atrain-status-badge').innerHTML = badges[data.status] || '';
+
+  const logEl = document.getElementById('atrain-log');
+  if (data.logs && data.logs.length > 0) {
+    logEl.innerHTML = data.logs.map(l => {
+      const cls = l.startsWith('Error') ? 'error' : l.startsWith('Training')||l.startsWith('Loading') ? 'info' : '';
+      return `<span class="log-line ${cls}">&gt; ${esc(l)}</span>`;
+    }).join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  if (data.history) {
+    const h = data.history;
+    const labels = h.accuracy.map((_,i) => i+1);
+    if (state.chartAudioAcc) { state.chartAudioAcc.data.labels=labels; state.chartAudioAcc.data.datasets[0].data=h.accuracy; state.chartAudioAcc.data.datasets[1].data=h.val_accuracy; state.chartAudioAcc.update('none'); }
+    if (state.chartAudioLoss) { state.chartAudioLoss.data.labels=labels; state.chartAudioLoss.data.datasets[0].data=h.loss; state.chartAudioLoss.data.datasets[1].data=h.val_loss; state.chartAudioLoss.update('none'); }
+  }
+}
+
 async function pollPrediction() {
   try {
-    const res = await fetch('/api/inference/prediction');
+    const res = await fetch('/api/fusion/prediction');
     const data = await res.json();
 
-    const cls = data.class || '—';
-    const conf = data.confidence || 0;
-    const confPct = Math.round(conf * 100);
+    const mv = data.movement || { class: '—', confidence: 0 };
+    const au = data.audio    || { class: '—', confidence: 0 };
+    const fu = data.fused    || { class: '—', confidence: 0 };
 
-    document.getElementById('inf-class').textContent = cls;
-    document.getElementById('inf-conf-bar').style.width = confPct + '%';
-    document.getElementById('inf-conf-text').textContent = confPct + '%';
+    // Fused
+    const fuCls = fu.class || '—';
+    const fuPct = Math.round((fu.confidence || 0) * 100);
+    document.getElementById('inf-class').textContent = fuCls;
+    document.getElementById('inf-conf-bar').style.width = fuPct + '%';
+    document.getElementById('inf-conf-text').textContent = fuPct + '%';
 
-    // Update recent predictions
-    if (cls !== '—' && conf > 0.3) {
+    // Movement
+    document.getElementById('inf-mv-class').textContent = mv.class || '—';
+    document.getElementById('inf-mv-conf').textContent = Math.round((mv.confidence || 0) * 100) + '%';
+
+    // Audio
+    document.getElementById('inf-au-class').textContent = au.class || '—';
+    document.getElementById('inf-au-conf').textContent = Math.round((au.confidence || 0) * 100) + '%';
+
+    // Recent predictions
+    if (fuCls !== '—' && fu.confidence > 0.3) {
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const last = state.recentPredictions[0];
-      if (!last || last.cls !== cls || (Date.now() - last.ts) > 1500) {
-        state.recentPredictions.unshift({ cls, conf: confPct, time: now, ts: Date.now() });
+      if (!last || last.cls !== fuCls || (Date.now() - last.ts) > 1500) {
+        state.recentPredictions.unshift({ cls: fuCls, conf: fuPct, time: now, ts: Date.now() });
         state.recentPredictions = state.recentPredictions.slice(0, 5);
         renderRecentPredictions();
       }
@@ -1490,6 +1891,131 @@ function renderRecentPredictions() {
       </div>
     </div>`
   ).join('');
+}
+
+// ─── Audio WebSocket (browser mic → /ws/audio) ───────────────────────────────
+let audioWs        = null;
+let audioCtx       = null;
+let audioMicStream = null;
+let audioProcessor = null;
+let audioWsUsers   = 0;   // ref-count: recording + inference can both use it
+
+async function ensureAudioWs() {
+  audioWsUsers++;
+  if (audioWs && audioWs.readyState === WebSocket.OPEN) return;
+
+  try {
+    // Request mic
+    audioMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    // Create AudioContext at 22050 Hz to match model training sample rate
+    audioCtx = new AudioContext({ sampleRate: 22050 });
+    await audioCtx.resume();
+
+    const source = audioCtx.createMediaStreamSource(audioMicStream);
+    // ScriptProcessor: 4096-sample buffer, 1 in, 1 out
+    audioProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+    audioProcessor.onaudioprocess = (e) => {
+      if (!audioWs || audioWs.readyState !== WebSocket.OPEN) return;
+      const samples = e.inputBuffer.getChannelData(0);
+      // Send a copy as Float32 binary
+      audioWs.send(new Float32Array(samples).buffer);
+    };
+    source.connect(audioProcessor);
+    audioProcessor.connect(audioCtx.destination);
+
+    // Open WebSocket
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    audioWs = new WebSocket(`${wsProto}//${location.host}/ws/audio`);
+    audioWs.binaryType = 'arraybuffer';
+    audioWs.onopen  = () => console.log('Audio WS connected');
+    audioWs.onerror = (e) => console.warn('Audio WS error', e);
+    audioWs.onclose = () => { console.log('Audio WS closed'); audioWs = null; };
+
+  } catch(err) {
+    console.error('Mic access error:', err);
+    showToast('Microphone access denied. Please allow mic permission.', 'error');
+  }
+}
+
+function releaseAudioWs() {
+  audioWsUsers = Math.max(0, audioWsUsers - 1);
+  if (audioWsUsers > 0) return;
+  // Stop everything
+  if (audioProcessor) { try { audioProcessor.disconnect(); } catch(e){} audioProcessor = null; }
+  if (audioCtx)       { audioCtx.close().catch(()=>{}); audioCtx = null; }
+  if (audioMicStream) { audioMicStream.getTracks().forEach(t => t.stop()); audioMicStream = null; }
+  if (audioWs)        { audioWs.close(); audioWs = null; }
+}
+
+// ─── Skeleton drawing connections ─────────────────────────────────────────────
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[0,17],[17,18],[18,19],[19,20]
+];
+const POSE_CONNECTIONS = [
+  [11,12],[11,13],[13,15],[12,14],[14,16],
+  [11,23],[12,24],[23,24],
+  [23,25],[25,27],[27,29],[29,31],
+  [24,26],[26,28],[28,30],[30,32]
+];
+
+function drawSkeleton(canvas, data) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  function lines(pts, conns, color) {
+    if (!pts) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    for (const [a, b] of conns) {
+      ctx.beginPath();
+      ctx.moveTo(pts[a][0] * W, pts[a][1] * H);
+      ctx.lineTo(pts[b][0] * W, pts[b][1] * H);
+      ctx.stroke();
+    }
+  }
+  function dots(pts, color, r) {
+    if (!pts) return;
+    ctx.fillStyle = color;
+    for (const p of pts) {
+      ctx.beginPath(); ctx.arc(p[0] * W, p[1] * H, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function polyline(pts, color, close) {
+    if (!pts || pts.length < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0] * W, pts[0][1] * H);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0] * W, pts[i][1] * H);
+    if (close) ctx.closePath();
+    ctx.stroke();
+  }
+
+  // Face oval
+  polyline(data.face_oval, 'rgba(80,200,80,0.6)', true);
+
+  // Pose
+  lines(data.pose, POSE_CONNECTIONS, 'rgba(245,117,66,0.85)');
+  dots(data.pose,  'rgba(245,117,66,0.9)', 3);
+
+  // Hands
+  lines(data.left_hand,  HAND_CONNECTIONS, 'rgba(160,40,180,0.9)');
+  dots(data.left_hand,   'rgba(180,60,200,0.95)', 4);
+  lines(data.right_hand, HAND_CONNECTIONS, 'rgba(245,100,30,0.9)');
+  dots(data.right_hand,  'rgba(255,140,50,0.95)', 4);
+
+  // Prediction overlay text
+  if (data.prediction) {
+    ctx.font = 'bold 22px Poppins, Arial';
+    ctx.fillStyle = '#6366f1';
+    ctx.shadowColor = '#fff'; ctx.shadowBlur = 6;
+    ctx.fillText(data.prediction, 20, 44);
+    ctx.shadowBlur = 0;
+  }
 }
 
 // ─── Camera / WebSocket ───────────────────────────────────────────────────────
@@ -1560,34 +2086,39 @@ function connectWebSocket() {
     setCameraStatus(true, 'Camera active');
     if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
     
-    // Start ping-pong loop
+    // Start frame loop
     frameLoopActive = true;
     waitingForResponse = false;
-    sendNextFrame();
+    _lastFrameTime = 0;
+    requestAnimationFrame(sendNextFrame);
   };
 
   cameraWs.onmessage = (e) => {
-    // Decode the annotated JPEG and paint it over the matching canvas
-    const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas' : 'rec-camera-canvas';
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    createImageBitmap(new Blob([e.data], { type: 'image/jpeg' })).then(bmp => {
-      canvas.width  = bmp.width;
-      canvas.height = bmp.height;
-      canvas.getContext('2d').drawImage(bmp, 0, 0);
-      canvas.style.display = 'block';
-      bmp.close();
-      
-      waitingForResponse = false;
-      if (frameLoopActive) {
-        setTimeout(sendNextFrame, 10);
+    // Server returns JSON with landmark positions — draw skeleton client-side
+    // on the transparent canvas overlay. The live <video> shows behind it.
+    try {
+      const data = JSON.parse(
+        typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data)
+      );
+      const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas' : 'rec-camera-canvas';
+      const canvas = document.getElementById(canvasId);
+      if (canvas) {
+        // Size canvas to match the video element once
+        const vid = document.getElementById(
+          state.currentPage === 'recognize' ? 'inf-camera-video' : 'rec-camera-video'
+        );
+        if (vid && (canvas.width !== vid.videoWidth || canvas.height !== vid.videoHeight)
+            && vid.videoWidth > 0) {
+          canvas.width  = vid.videoWidth;
+          canvas.height = vid.videoHeight;
+        }
+        canvas.style.display = 'block';
+        drawSkeleton(canvas, data);
       }
-    }).catch(() => {
-      waitingForResponse = false;
-      if (frameLoopActive) {
-        setTimeout(sendNextFrame, 10);
-      }
-    });
+    } catch(err) { /* ignore malformed frame */ }
+
+    waitingForResponse = false;
+    if (frameLoopActive) requestAnimationFrame(sendNextFrame);
   };
 
   cameraWs.onerror = (e) => {
@@ -1611,16 +2142,24 @@ function connectWebSocket() {
   };
 }
 
-function sendNextFrame() {
+let _lastFrameTime = 0;
+const FRAME_INTERVAL = 1000 / 15;   // cap at 15 fps to backend
+
+function sendNextFrame(ts) {
   if (!frameLoopActive || waitingForResponse) return;
   if (!cameraWs || cameraWs.readyState !== WebSocket.OPEN) return;
 
+  // Rate-limit sends to FRAME_INTERVAL (don't overwhelm backend)
+  if (ts && ts - _lastFrameTime < FRAME_INTERVAL) {
+    requestAnimationFrame(sendNextFrame);
+    return;
+  }
+  _lastFrameTime = ts || performance.now();
+
   const videoId = state.currentPage === 'recognize' ? 'inf-camera-video' : 'rec-camera-video';
   const video = document.getElementById(videoId);
-  
   if (!video || video.readyState < 2) {
-    // Video not ready yet, try again soon
-    setTimeout(sendNextFrame, 100);
+    setTimeout(() => requestAnimationFrame(sendNextFrame), 100);
     return;
   }
 
@@ -1634,7 +2173,7 @@ function sendNextFrame() {
     } else {
       waitingForResponse = false;
     }
-  }, 'image/jpeg', 0.85);
+  }, 'image/jpeg', 0.75);   // lower quality = faster transfer
 }
 
 function stopCamera() {

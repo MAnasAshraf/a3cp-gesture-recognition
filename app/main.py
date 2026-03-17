@@ -3,6 +3,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,9 +19,14 @@ from .modules.camera import processor
 from .modules.recorder import RecordingSession, DATA_PATH, ensure_csv
 from .modules.trainer import TrainingSession, MODEL_PATH, ENCODER_PATH
 from .modules.recognizer import recognizer
+from .modules.audio_recorder import AudioRecordingSession, DATA_PATH as AUDIO_DATA_PATH, ensure_csv as audio_ensure_csv
+from .modules.audio_trainer import AudioTrainingSession, MODEL_PATH as AUDIO_MODEL_PATH, ENCODER_PATH as AUDIO_ENCODER_PATH
+from .modules.audio_recognizer import audio_recognizer
 
 import app.modules.recorder as recorder_module
 import app.modules.trainer as trainer_module
+import app.modules.audio_recorder as audio_recorder_module
+import app.modules.audio_trainer as audio_trainer_module
 
 app = FastAPI(title="GestureAI")
 
@@ -61,9 +67,9 @@ async def camera_ws(websocket: WebSocket):
     try:
         while True:
             raw_jpeg = await websocket.receive_bytes()
-            # Run blocking MediaPipe + TF work in a thread so the event loop stays free
-            annotated_jpeg = await loop.run_in_executor(_frame_executor, processor.process, raw_jpeg)
-            await websocket.send_bytes(annotated_jpeg)
+            # Run blocking MediaPipe work in a thread; returns JSON bytes (landmark positions)
+            landmark_json = await loop.run_in_executor(_frame_executor, processor.process, raw_jpeg)
+            await websocket.send_bytes(landmark_json)
     except WebSocketDisconnect:
         pass
     except Exception:
@@ -200,3 +206,177 @@ async def get_prediction():
         conf_pct = int(pred["confidence"] * 100)
         processor.prediction_overlay = f"{pred['class']} ({conf_pct}%)"
     return pred
+
+
+# ─── WebSocket: browser mic audio ────────────────────────────────────────────
+# Browser captures mic at 22050 Hz and streams Float32 PCM via WebSocket.
+# Backend routes chunks to the active recording session or the audio recognizer.
+
+@app.websocket("/ws/audio")
+async def audio_ws(websocket: WebSocket):
+    await websocket.accept()
+    loop = asyncio.get_event_loop()
+    try:
+        while True:
+            raw = await websocket.receive_bytes()
+            chunk = np.frombuffer(raw, dtype=np.float32)
+
+            # Route to recording session
+            session = audio_recorder_module.current_session
+            if session and session.status == "recording":
+                session.add_audio_chunk(chunk)
+
+            # Route to recognizer (inference mode)
+            if audio_recognizer.is_active():
+                audio_recognizer.add_audio_chunk(chunk)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+
+
+# ─── Audio Data ───────────────────────────────────────────────────────────────
+
+@app.get("/api/audio/data/stats")
+async def audio_data_stats():
+    audio_ensure_csv()
+    if not AUDIO_DATA_PATH.exists() or AUDIO_DATA_PATH.stat().st_size < 10:
+        return {"total_rows": 0, "classes": {}, "model_trained": False}
+    try:
+        df = pd.read_csv(AUDIO_DATA_PATH)
+        class_counts = df.groupby("class")["sequence_id"].nunique().to_dict()
+        return {
+            "total_rows": len(df),
+            "classes": class_counts,
+            "model_trained": AUDIO_MODEL_PATH.exists(),
+        }
+    except Exception as e:
+        return {"total_rows": 0, "classes": {}, "model_trained": False, "error": str(e)}
+
+
+@app.delete("/api/audio/data/gesture/{gesture_name}")
+async def delete_audio_gesture(gesture_name: str):
+    if not AUDIO_DATA_PATH.exists():
+        raise HTTPException(404, "No audio data file found")
+    df = pd.read_csv(AUDIO_DATA_PATH)
+    df = df[df["class"] != gesture_name]
+    df.to_csv(AUDIO_DATA_PATH, index=False)
+    return {"status": "deleted", "gesture": gesture_name}
+
+
+# ─── Audio Recording ──────────────────────────────────────────────────────────
+
+class AudioRecordRequest(BaseModel):
+    gesture_name: str
+    duration: int = 10
+
+
+@app.post("/api/audio/record/start")
+async def start_audio_recording(req: AudioRecordRequest):
+    if not req.gesture_name.strip():
+        raise HTTPException(400, "Gesture name required")
+    session = AudioRecordingSession(req.gesture_name.strip(), req.duration)
+    audio_recorder_module.current_session = session
+    session.start()
+    return {"status": "recording", "gesture": req.gesture_name, "duration": req.duration}
+
+
+@app.post("/api/audio/record/stop")
+async def stop_audio_recording():
+    session = audio_recorder_module.current_session
+    if session and session.status == "recording":
+        session.stop()
+    return {"status": "stopped"}
+
+
+@app.get("/api/audio/record/status")
+async def audio_record_status():
+    session = audio_recorder_module.current_session
+    if not session:
+        return {"status": "idle", "progress": 0, "message": ""}
+    return {
+        "status": session.status,
+        "progress": session.progress,
+        "message": session.message,
+        "frames_saved": session.frames_saved,
+        "gesture": session.gesture_name,
+    }
+
+
+# ─── Audio Training ───────────────────────────────────────────────────────────
+
+class AudioTrainRequest(BaseModel):
+    epochs: int = 50
+
+
+@app.post("/api/audio/train/start")
+async def start_audio_training(req: AudioTrainRequest):
+    if audio_trainer_module.current_training and audio_trainer_module.current_training.status == "running":
+        raise HTTPException(409, "Audio training already in progress")
+    session = AudioTrainingSession(req.epochs)
+    audio_trainer_module.current_training = session
+    session.start()
+    return {"status": "started"}
+
+
+@app.get("/api/audio/train/status")
+async def audio_train_status():
+    session = audio_trainer_module.current_training
+    if not session:
+        return {"status": "idle", "progress": 0, "logs": [], "history": {}, "message": ""}
+    return {
+        "status": session.status,
+        "progress": session.progress,
+        "logs": session.logs[-20:],
+        "history": session.history,
+        "final_accuracy": session.final_accuracy,
+        "message": session.message,
+    }
+
+
+# ─── Audio Inference ──────────────────────────────────────────────────────────
+
+@app.post("/api/audio/inference/start")
+async def start_audio_inference():
+    try:
+        audio_recognizer.load()
+        audio_recognizer.start()
+        return {"status": "started"}
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.post("/api/audio/inference/stop")
+async def stop_audio_inference():
+    audio_recognizer.stop()
+    return {"status": "stopped"}
+
+
+@app.get("/api/audio/inference/prediction")
+async def get_audio_prediction():
+    return audio_recognizer.get_prediction()
+
+
+# ─── Fusion ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/fusion/prediction")
+async def get_fusion_prediction():
+    """Return movement prediction, audio prediction, and a fused result."""
+    mv = recognizer.get_prediction()
+    au = audio_recognizer.get_prediction()
+
+    # Confidence-weighted fusion
+    mv_conf = mv["confidence"] if mv["class"] != "—" else 0.0
+    au_conf = au["confidence"] if au["class"] != "—" else 0.0
+    total   = mv_conf + au_conf
+
+    if total == 0:
+        fused = {"class": "—", "confidence": 0.0}
+    elif mv["class"] == au["class"]:
+        fused = {"class": mv["class"], "confidence": min(1.0, total / 2 + 0.1)}
+    elif mv_conf >= au_conf:
+        fused = {"class": mv["class"], "confidence": mv_conf * 0.7}
+    else:
+        fused = {"class": au["class"], "confidence": au_conf * 0.7}
+
+    return {"movement": mv, "audio": au, "fused": fused}
