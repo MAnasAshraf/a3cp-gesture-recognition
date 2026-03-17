@@ -25,7 +25,7 @@ class FrameProcessor:
     def start(self):
         if self._holistic is None:
             self._holistic = mp_holistic.Holistic(
-                model_complexity=0,          # fastest pose model (0=lite, 1=full, 2=heavy)
+                model_complexity=1,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
             )
@@ -54,10 +54,6 @@ class FrameProcessor:
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if image is None:
             return empty
-
-        # Downsample to 320×240 before MediaPipe — landmarks are normalised
-        # (0-1) so accuracy is unaffected; processing time drops ~4×.
-        image = cv2.resize(image, (320, 240), interpolation=cv2.INTER_LINEAR)
 
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         rgb.flags.writeable = False

@@ -52,7 +52,7 @@ class Recognizer:
                 self._last_predict_time = time.time()
                 snapshot = list(self.window)  # copy before releasing lock
         if snapshot is not None:
-            self._predict(snapshot)
+            threading.Thread(target=self._predict, args=(snapshot,), daemon=True).start()
 
     def _predict(self, snapshot):
         # Runs outside the lock so get_prediction() is never blocked by TF inference
