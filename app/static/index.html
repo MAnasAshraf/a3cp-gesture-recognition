@@ -2106,8 +2106,8 @@ let wsReconnectTimer = null;
 let waitingForResponse = false;
 let frameLoopActive = false;
 const sendCanvas = document.createElement('canvas');
-sendCanvas.width = 640;
-sendCanvas.height = 480;
+sendCanvas.width = 320;
+sendCanvas.height = 240;
 const sendCtx = sendCanvas.getContext('2d');
 
 function setCameraStatus(online, text) {
@@ -2245,7 +2245,7 @@ function sendNextFrame(ts) {
   }
 
   waitingForResponse = true;
-  sendCtx.drawImage(video, 0, 0, 640, 480);
+  sendCtx.drawImage(video, 0, 0, 320, 240);
   sendCanvas.toBlob(blob => {
     if (blob && cameraWs && cameraWs.readyState === WebSocket.OPEN) {
       blob.arrayBuffer().then(buf => cameraWs.send(buf)).catch(() => {
@@ -2254,7 +2254,7 @@ function sendNextFrame(ts) {
     } else {
       waitingForResponse = false;
     }
-  }, 'image/jpeg', 0.75);   // lower quality = faster transfer
+  }, 'image/jpeg', 0.6);   // 320×240 @ 0.6 quality — fast transfer, good enough for MediaPipe
 }
 
 function stopCamera() {
