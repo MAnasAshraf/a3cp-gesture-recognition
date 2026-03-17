@@ -109,6 +109,46 @@ async def create_user(req: UserRequest):
     return {"username": username, "status": "ok"}
 
 
+@app.post("/api/users/{username}/import-legacy")
+async def import_legacy(username: str):
+    """Copy legacy shared data/models into this user's folder (one-time migration)."""
+    import shutil
+    _validate_username(username)
+    p = _user_paths(username)
+    p["data_dir"].mkdir(parents=True, exist_ok=True)
+    p["models_dir"].mkdir(parents=True, exist_ok=True)
+
+    copied = []
+
+    legacy_gestures = BASE_DATA / "gestures.csv"
+    if legacy_gestures.exists() and legacy_gestures.stat().st_size > 10:
+        if not p["gestures_csv"].exists() or p["gestures_csv"].stat().st_size < 10:
+            shutil.copy2(legacy_gestures, p["gestures_csv"])
+            copied.append("gestures.csv")
+
+    legacy_audio = BASE_DATA / "audio_gestures.csv"
+    if legacy_audio.exists() and legacy_audio.stat().st_size > 10:
+        if not p["audio_csv"].exists() or p["audio_csv"].stat().st_size < 10:
+            shutil.copy2(legacy_audio, p["audio_csv"])
+            copied.append("audio_gestures.csv")
+
+    legacy_models = {
+        "movement_model.h5":      BASE_DATA / "models" / "movement_model.h5",
+        "label_encoder.pkl":      BASE_DATA / "models" / "label_encoder.pkl",
+        "audio_model.h5":         BASE_DATA / "models" / "audio_model.h5",
+        "audio_label_encoder.pkl": BASE_DATA / "models" / "audio_label_encoder.pkl",
+    }
+    for fname, src in legacy_models.items():
+        dst = p["models_dir"] / fname
+        if src.exists() and not dst.exists():
+            shutil.copy2(src, dst)
+            copied.append(f"models/{fname}")
+
+    if not copied:
+        return {"status": "nothing_to_import", "message": "No legacy data found, or user data already exists."}
+    return {"status": "ok", "copied": copied}
+
+
 # ─── WebSocket: camera frames ─────────────────────────────────────────────────
 
 @app.websocket("/ws/camera")
