@@ -1531,6 +1531,161 @@
 
     </div><!-- /recognize -->
 
+    <!-- Settings page -->
+    <div id="page-settings" class="page">
+      <div class="section-header"><span class="section-dot"></span>System Configuration</div>
+      <p style="color:var(--text-secondary);margin-bottom:24px;">
+        Adjust thresholds, colours, and training parameters. Changes marked
+        <span style="background:#16a34a;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;">Live</span>
+        take effect immediately.
+        <span style="background:#1d4ed8;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;">Next run</span>
+        take effect the next time you click Train.
+        <span style="background:#b45309;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;">Restart</span>
+        require a server restart.
+      </p>
+
+      <!-- Fusion -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-icon">🔀</span>Fusion Rules</div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <label class="cfg-field">
+              <span>Audio override threshold (THETA_AUD) <span class="badge-live">Live</span></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="range" id="cfg-THETA_AUD" min="0.50" max="1.00" step="0.01" style="flex:1">
+                <span id="cfg-THETA_AUD-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
+              </div>
+            </label>
+            <label class="cfg-field">
+              <span>Movement primary threshold (THETA_VIS) <span class="badge-live">Live</span></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="range" id="cfg-THETA_VIS" min="0.50" max="1.00" step="0.01" style="flex:1">
+                <span id="cfg-THETA_VIS-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
+              </div>
+            </label>
+            <label class="cfg-field">
+              <span>Agreement boost (W_AGREE) <span class="badge-live">Live</span></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="range" id="cfg-W_AGREE" min="1.00" max="1.50" step="0.01" style="flex:1">
+                <span id="cfg-W_AGREE-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
+              </div>
+            </label>
+            <label class="cfg-field">
+              <span>Disagreement discount (W_DISAGREE) <span class="badge-live">Live</span></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="range" id="cfg-W_DISAGREE" min="0.50" max="1.00" step="0.01" style="flex:1">
+                <span id="cfg-W_DISAGREE-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recognition -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-icon">🎯</span>Recognition</div>
+        <div class="card-body">
+          <label class="cfg-field" style="max-width:400px;">
+            <span>Confidence threshold <span class="badge-live">Live</span></span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" id="cfg-CONFIDENCE_THRESHOLD" min="0.30" max="0.90" step="0.01" style="flex:1">
+              <span id="cfg-CONFIDENCE_THRESHOLD-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Training -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-icon">🧠</span>Training Defaults</div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+            <label class="cfg-field">
+              <span>Epochs <span class="badge-next">Next run</span></span>
+              <input type="number" id="cfg-EPOCHS" min="10" max="500" step="10" class="cfg-input">
+            </label>
+            <label class="cfg-field">
+              <span>Batch size <span class="badge-next">Next run</span></span>
+              <input type="number" id="cfg-BATCH_SIZE" min="8" max="256" step="8" class="cfg-input">
+            </label>
+            <label class="cfg-field">
+              <span>Learning rate <span class="badge-next">Next run</span></span>
+              <input type="number" id="cfg-LEARNING_RATE" min="0.00001" max="0.01" step="0.0001" class="cfg-input">
+            </label>
+            <label class="cfg-field">
+              <span>Test split <span class="badge-next">Next run</span></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="range" id="cfg-TEST_SIZE" min="0.10" max="0.40" step="0.05" style="flex:1">
+                <span id="cfg-TEST_SIZE-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
+              </div>
+            </label>
+            <label class="cfg-field">
+              <span>Audio feature selection K (KBEST_K) <span class="badge-next">Next run</span></span>
+              <input type="number" id="cfg-KBEST_K" min="5" max="43" step="1" class="cfg-input">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton Colours -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-icon">🎨</span>Landmark Skeleton Colours</div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;">
+            <label class="cfg-field">
+              <span>Left hand <span class="badge-live">Live</span></span>
+              <input type="color" id="cfg-COLOR_LEFT_HAND" class="cfg-color">
+            </label>
+            <label class="cfg-field">
+              <span>Right hand <span class="badge-live">Live</span></span>
+              <input type="color" id="cfg-COLOR_RIGHT_HAND" class="cfg-color">
+            </label>
+            <label class="cfg-field">
+              <span>Pose <span class="badge-live">Live</span></span>
+              <input type="color" id="cfg-COLOR_POSE" class="cfg-color">
+            </label>
+            <label class="cfg-field">
+              <span>Face oval <span class="badge-live">Live</span></span>
+              <input type="color" id="cfg-COLOR_FACE_OVAL" class="cfg-color">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio & Camera -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-icon">🔊</span>Audio Pipeline <span style="font-size:12px;font-weight:400;color:var(--text-secondary);margin-left:8px;">Changes need server restart</span></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+            <label class="cfg-field">
+              <span>MFCC coefficients (N_MFCC) <span class="badge-restart">Restart</span></span>
+              <input type="number" id="cfg-N_MFCC" min="5" max="40" step="1" class="cfg-input" disabled>
+            </label>
+            <label class="cfg-field">
+              <span>Window duration s (WINDOW_DURATION) <span class="badge-restart">Restart</span></span>
+              <input type="number" id="cfg-WINDOW_DURATION" min="0.1" max="2.0" step="0.1" class="cfg-input" disabled>
+            </label>
+            <label class="cfg-field">
+              <span>Hop duration s (HOP_DURATION) <span class="badge-restart">Restart</span></span>
+              <input type="number" id="cfg-HOP_DURATION" min="0.05" max="0.5" step="0.05" class="cfg-input" disabled>
+            </label>
+            <label class="cfg-field">
+              <span>Sample rate Hz (read-only) <span class="badge-restart">Restart</span></span>
+              <input type="number" id="cfg-SAMPLE_RATE" class="cfg-input" disabled>
+            </label>
+          </div>
+          <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Audio parameters are shown for reference only. Edit <code>app/config.py</code> and restart the server to change them.</p>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:12px;margin-top:8px;">
+        <button class="btn btn-gradient" onclick="applySettings()">Apply Changes</button>
+        <button class="btn btn-ghost" onclick="resetSettings()">Reset to Defaults</button>
+        <span id="settings-msg" style="align-self:center;font-size:13px;color:var(--text-secondary);"></span>
+      </div>
+    </div><!-- /settings -->
+
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -1559,152 +1714,6 @@
   </div>
 </div>
 
-<!-- Settings page -->
-<div id="page-settings" class="page">
-  <div class="section-header"><span class="section-dot"></span>System Configuration</div>
-  <p style="color:var(--text-secondary);margin-bottom:24px;">
-    Adjust thresholds, colours, and training parameters. Changes marked
-    <span style="background:#16a34a;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;">Live</span>
-    take effect immediately.
-    <span style="background:#1d4ed8;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;">Next run</span>
-    take effect the next time you click Train.
-    <span style="background:#b45309;color:#fff;font-size:11px;padding:1px 6px;border-radius:9px;">Restart</span>
-    require a server restart.
-  </p>
-
-  <!-- Fusion -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><span class="card-icon">🔀</span>Fusion Rules</div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <label class="cfg-field">
-          <span>Audio override threshold (THETA_AUD) <span class="badge-live">Live</span></span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="cfg-THETA_AUD" min="0.50" max="1.00" step="0.01" style="flex:1">
-            <span id="cfg-THETA_AUD-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
-          </div>
-        </label>
-        <label class="cfg-field">
-          <span>Movement primary threshold (THETA_VIS) <span class="badge-live">Live</span></span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="cfg-THETA_VIS" min="0.50" max="1.00" step="0.01" style="flex:1">
-            <span id="cfg-THETA_VIS-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
-          </div>
-        </label>
-        <label class="cfg-field">
-          <span>Agreement boost (W_AGREE) <span class="badge-live">Live</span></span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="cfg-W_AGREE" min="1.00" max="1.50" step="0.01" style="flex:1">
-            <span id="cfg-W_AGREE-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
-          </div>
-        </label>
-        <label class="cfg-field">
-          <span>Disagreement discount (W_DISAGREE) <span class="badge-live">Live</span></span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="cfg-W_DISAGREE" min="0.50" max="1.00" step="0.01" style="flex:1">
-            <span id="cfg-W_DISAGREE-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
-          </div>
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Recognition -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><span class="card-icon">🎯</span>Recognition</div>
-    <div class="card-body">
-      <label class="cfg-field" style="max-width:400px;">
-        <span>Confidence threshold <span class="badge-live">Live</span></span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="range" id="cfg-CONFIDENCE_THRESHOLD" min="0.30" max="0.90" step="0.01" style="flex:1">
-          <span id="cfg-CONFIDENCE_THRESHOLD-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
-        </div>
-      </label>
-    </div>
-  </div>
-
-  <!-- Training -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><span class="card-icon">🧠</span>Training Defaults</div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-        <label class="cfg-field">
-          <span>Epochs <span class="badge-next">Next run</span></span>
-          <input type="number" id="cfg-EPOCHS" min="10" max="500" step="10" class="cfg-input">
-        </label>
-        <label class="cfg-field">
-          <span>Batch size <span class="badge-next">Next run</span></span>
-          <input type="number" id="cfg-BATCH_SIZE" min="8" max="256" step="8" class="cfg-input">
-        </label>
-        <label class="cfg-field">
-          <span>Learning rate <span class="badge-next">Next run</span></span>
-          <input type="number" id="cfg-LEARNING_RATE" min="0.00001" max="0.01" step="0.0001" class="cfg-input">
-        </label>
-        <label class="cfg-field">
-          <span>Test split <span class="badge-next">Next run</span></span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="range" id="cfg-TEST_SIZE" min="0.10" max="0.40" step="0.05" style="flex:1">
-            <span id="cfg-TEST_SIZE-val" style="min-width:36px;text-align:right;font-weight:600;"></span>
-          </div>
-        </label>
-        <label class="cfg-field">
-          <span>Audio feature selection K (KBEST_K) <span class="badge-next">Next run</span></span>
-          <input type="number" id="cfg-KBEST_K" min="5" max="43" step="1" class="cfg-input">
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Skeleton Colours -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><span class="card-icon">🎨</span>Landmark Skeleton Colours</div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;">
-        <label class="cfg-field">
-          <span>Left hand <span class="badge-live">Live</span></span>
-          <input type="color" id="cfg-COLOR_LEFT_HAND" class="cfg-color">
-        </label>
-        <label class="cfg-field">
-          <span>Right hand <span class="badge-live">Live</span></span>
-          <input type="color" id="cfg-COLOR_RIGHT_HAND" class="cfg-color">
-        </label>
-        <label class="cfg-field">
-          <span>Pose <span class="badge-live">Live</span></span>
-          <input type="color" id="cfg-COLOR_POSE" class="cfg-color">
-        </label>
-        <label class="cfg-field">
-          <span>Face oval <span class="badge-live">Live</span></span>
-          <input type="color" id="cfg-COLOR_FACE_OVAL" class="cfg-color">
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Audio & Camera -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><span class="card-icon">🔊</span>Audio Pipeline <span style="font-size:12px;font-weight:400;color:var(--text-secondary);margin-left:8px;">Changes need server restart</span></div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-        <label class="cfg-field">
-          <span>MFCC coefficients (N_MFCC) <span class="badge-restart">Restart</span></span>
-          <input type="number" id="cfg-N_MFCC" min="5" max="40" step="1" class="cfg-input" disabled>
-        </label>
-        <label class="cfg-field">
-          <span>Window duration s (WINDOW_DURATION) <span class="badge-restart">Restart</span></span>
-          <input type="number" id="cfg-WINDOW_DURATION" min="0.1" max="2.0" step="0.1" class="cfg-input" disabled>
-        </label>
-        <label class="cfg-field">
-          <span>Hop duration s (HOP_DURATION) <span class="badge-restart">Restart</span></span>
-          <input type="number" id="cfg-HOP_DURATION" min="0.05" max="0.5" step="0.05" class="cfg-input" disabled>
-        </label>
-        <label class="cfg-field">
-          <span>Sample rate Hz (read-only) <span class="badge-restart">Restart</span></span>
-          <input type="number" id="cfg-SAMPLE_RATE" class="cfg-input" disabled>
-        </label>
-      </div>
-      <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Audio parameters are shown for reference only. Edit <code>app/config.py</code> and restart the server to change them.</p>
-    </div>
-  </div>
 
   <!-- Buttons -->
   <div style="display:flex;gap:12px;margin-top:8px;">
