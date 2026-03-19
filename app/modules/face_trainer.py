@@ -6,6 +6,7 @@ import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
+import app.config as cfg
 
 DATA_PATH    = Path(__file__).parent.parent.parent / "data" / "gestures.csv"
 MODEL_DIR    = Path(__file__).parent.parent.parent / "data" / "models"
@@ -97,7 +98,7 @@ class FaceTrainingSession:
                 Dense(y_train.shape[1], activation="softmax"),
             ])
             model.compile(
-                optimizer=Adam(learning_rate=0.001),
+                optimizer=Adam(learning_rate=cfg.LEARNING_RATE),
                 loss="categorical_crossentropy", metrics=["accuracy"]
             )
 
@@ -120,7 +121,7 @@ class FaceTrainingSession:
             self.logs.append("Training started...")
             model.fit(
                 X_train, y_train,
-                epochs=self.epochs, batch_size=32,
+                epochs=self.epochs, batch_size=cfg.BATCH_SIZE,
                 validation_data=(X_test, y_test),
                 class_weight=dict(enumerate(cw)),
                 callbacks=[_CB()], verbose=0

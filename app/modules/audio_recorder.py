@@ -3,12 +3,13 @@ import threading
 import numpy as np
 from pathlib import Path
 from collections import deque
+import app.config as cfg
 
-SAMPLE_RATE        = 22050
-WINDOW_DURATION    = 0.5    # seconds per sliding window
-HOP_DURATION       = 0.1    # seconds between windows
-N_MFCC             = 13
-AUDIO_FEATURE_SIZE = N_MFCC * 3 + 4   # mfcc + delta + delta2 + 4 spectral = 43
+SAMPLE_RATE        = cfg.SAMPLE_RATE
+WINDOW_DURATION    = cfg.WINDOW_DURATION
+HOP_DURATION       = cfg.HOP_DURATION
+N_MFCC             = cfg.N_MFCC
+AUDIO_FEATURE_SIZE = cfg.N_MFCC * 3 + 4   # mfcc + delta + delta2 + 4 spectral = 43
 
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "audio_gestures.csv"
 HEADER    = ["class", "sequence_id"] + [f"f_{i}" for i in range(AUDIO_FEATURE_SIZE)]

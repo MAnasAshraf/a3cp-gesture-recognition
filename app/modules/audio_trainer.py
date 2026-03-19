@@ -7,13 +7,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.utils.class_weight import compute_class_weight
+import app.config as cfg
 
 DATA_PATH    = Path(__file__).parent.parent.parent / "data" / "audio_gestures.csv"
 MODEL_DIR    = Path(__file__).parent.parent.parent / "data" / "models"
 MODEL_PATH   = MODEL_DIR / "audio_model.h5"
 ENCODER_PATH = MODEL_DIR / "audio_label_encoder.pkl"
-
-KBEST_K = 14   # matches notebook SelectKBest(k=14)
 
 
 class AudioTrainingSession:
@@ -62,7 +61,7 @@ class AudioTrainingSession:
 
             scaler   = StandardScaler()
             X_agg_sc = scaler.fit_transform(X_agg)
-            k        = min(KBEST_K, X_agg.shape[1])
+            k        = min(cfg.KBEST_K, X_agg.shape[1])
             selector = SelectKBest(score_func=f_classif, k=k)
             selector.fit(X_agg_sc, y_agg)
 
@@ -124,7 +123,7 @@ class AudioTrainingSession:
                 Dense(y_train.shape[1], activation="softmax"),
             ])
             model.compile(
-                optimizer=Adam(learning_rate=0.001),
+                optimizer=Adam(learning_rate=cfg.LEARNING_RATE),
                 loss="categorical_crossentropy", metrics=["accuracy"]
             )
 
@@ -147,7 +146,7 @@ class AudioTrainingSession:
             self.logs.append("Training started...")
             model.fit(
                 X_train, y_train,
-                epochs=self.epochs, batch_size=32,
+                epochs=self.epochs, batch_size=cfg.BATCH_SIZE,
                 validation_data=(X_test, y_test),
                 class_weight=dict(enumerate(cw)),
                 callbacks=[_CB()], verbose=0

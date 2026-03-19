@@ -4,18 +4,17 @@ import threading
 from pathlib import Path
 from collections import deque
 
-from .audio_recorder import (
-    extract_audio_features, SAMPLE_RATE, AUDIO_FEATURE_SIZE
-)
+import app.config as cfg
+from .audio_recorder import extract_audio_features
 
 MODEL_PATH    = Path(__file__).parent.parent.parent / "data" / "models" / "audio_model.h5"
 ENCODER_PATH  = Path(__file__).parent.parent.parent / "data" / "models" / "audio_label_encoder.pkl"
 SCALER_PATH   = Path(__file__).parent.parent.parent / "data" / "models" / "audio_scaler.pkl"
 SELECTOR_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "audio_selector.pkl"
 
-WINDOW_SAMPLES       = int(0.5 * SAMPLE_RATE)   # 11 025 samples
-HOP_SAMPLES          = int(0.1 * SAMPLE_RATE)    # 2 205 samples
-CONFIDENCE_THRESHOLD = 0.50
+# Derived from cfg at startup — baked into deque maxlen (restart required to change)
+WINDOW_SAMPLES = int(cfg.WINDOW_DURATION * cfg.SAMPLE_RATE)
+HOP_SAMPLES    = int(cfg.HOP_DURATION    * cfg.SAMPLE_RATE)
 
 
 class AudioRecognizer:
@@ -105,7 +104,7 @@ class AudioRecognizer:
             conf  = float(probs[idx])
             result = (
                 {"class": self.le.classes_[idx], "confidence": conf}
-                if conf >= CONFIDENCE_THRESHOLD
+                if conf >= cfg.CONFIDENCE_THRESHOLD
                 else {"class": "—", "confidence": conf}
             )
             with self._lock:

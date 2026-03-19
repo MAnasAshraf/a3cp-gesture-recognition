@@ -6,12 +6,12 @@ from pathlib import Path
 from collections import deque
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+import app.config as cfg
 
 MODEL_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "movement_model.h5"
 ENCODER_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "label_encoder.pkl"
 
-CONFIDENCE_THRESHOLD = 0.50   # minimum confidence to report a prediction
-ANGLE_COLS = slice(162, 176)  # columns normalized by /180 during training
+ANGLE_COLS = slice(162, 176)  # left-hand angle columns normalised by /180 during training
 
 class Recognizer:
     def __init__(self, window_size=11):
@@ -66,7 +66,7 @@ class Recognizer:
         confidence = float(probs[idx])
         result = (
             {"class": self.le.classes_[idx], "confidence": confidence}
-            if confidence >= CONFIDENCE_THRESHOLD
+            if confidence >= cfg.CONFIDENCE_THRESHOLD
             else {"class": "—", "confidence": confidence}
         )
         with self._lock:

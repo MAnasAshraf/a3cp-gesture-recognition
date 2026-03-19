@@ -33,6 +33,7 @@ import app.modules.trainer as trainer_module
 import app.modules.audio_recorder as audio_recorder_module
 import app.modules.audio_trainer as audio_trainer_module
 import app.modules.face_trainer as face_trainer_module
+import app.config as cfg
 
 app = FastAPI(title="GestureAI")
 
@@ -678,7 +679,6 @@ def _analyse_video(video_path: str, model_path: Path, encoder_path: Path) -> dic
     from tensorflow.keras.preprocessing.sequence import pad_sequences
     from .modules.features import extract_landmarks
 
-    CONFIDENCE_THRESHOLD = 0.50
     ANGLE_COLS = np.concatenate([np.arange(162, 176), np.arange(239, 253)])
 
     model = load_model(model_path)
@@ -734,7 +734,7 @@ def _analyse_video(video_path: str, model_path: Path, encoder_path: Path) -> dic
                     probs = model.predict(X, verbose=0)[0]
                     idx   = int(np.argmax(probs))
                     conf  = float(probs[idx])
-                    if conf >= CONFIDENCE_THRESHOLD:
+                    if conf >= cfg.CONFIDENCE_THRESHOLD:
                         predictions.append({
                             "time":       round(t, 2),
                             "class":      le.classes_[idx],
@@ -853,14 +853,13 @@ def _extract_video_training_data(video_path: str, gesture_name: str, data_path: 
     else:
         next_id = 1
 
-    frame_window = 5
     rows_written = 0
     with open(data_path, "a", newline="") as csv_file:
         writer = csv.writer(csv_file)
         seq_id = next_id
         for kf in keyframes:
-            start_idx = max(0, kf - frame_window)
-            end_idx   = min(len(arr), kf + frame_window + 1)
+            start_idx = max(0, kf - cfg.FRAME_WINDOW)
+            end_idx   = min(len(arr), kf + cfg.FRAME_WINDOW + 1)
             for idx in range(start_idx, end_idx):
                 writer.writerow([gesture_name, seq_id] + list(arr[idx]))
                 rows_written += 1
@@ -909,47 +908,47 @@ async def record_from_video(
 
 
 # ─── Fusion ───────────────────────────────────────────────────────────────────
-# Confidence thresholds matching the researcher's notebook (cell 42)
-_THETA_VIS   = 0.85   # movement must exceed this to be primary
-_THETA_AUD   = 0.90   # audio overrides all streams at this confidence
-_W_AGREE     = 1.10   # boost when two streams agree
-_W_DISAGREE  = 0.90   # discount when streams disagree
-
+# Thresholds read from cfg at call time — live-updateable via /api/config/apply
 
 def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
     mc, mf = mv["class"],   mv["confidence"]
     ac, af = au["class"],   au["confidence"]
     fc, ff = face["class"], face["confidence"]  # noqa: F841
 
+    theta_aud  = cfg.THETA_AUD
+    theta_vis  = cfg.THETA_VIS
+    w_agree    = cfg.W_AGREE
+    w_disagree = cfg.W_DISAGREE
+
     # Audio override: strong audio signal wins regardless of movement
-    if ac != "—" and af >= _THETA_AUD:
+    if ac != "—" and af >= theta_aud:
         agreed = mc == ac
-        conf = min(1.0, af * _W_AGREE) if agreed else af
-        modifier = f"Movement agreed → ×{_W_AGREE}" if agreed else "Movement disagreed (no boost)"
+        conf = min(1.0, af * w_agree) if agreed else af
+        modifier = f"Movement agreed → ×{w_agree}" if agreed else "Movement disagreed (no boost)"
         return {
             "class": ac, "confidence": round(conf, 3),
             "rule": "audio_override",
-            "rule_label": f"Audio override — {round(af*100)}% ≥ {round(_THETA_AUD*100)}%",
+            "rule_label": f"Audio override — {round(af*100)}% ≥ {round(theta_aud*100)}%",
             "detail": modifier,
         }
 
     # Movement primary: above vision threshold
-    if mc != "—" and mf >= _THETA_VIS:
+    if mc != "—" and mf >= theta_vis:
         conf = mf
         modifiers = []
         if ac == mc:
-            conf = min(1.0, conf * _W_AGREE)
-            modifiers.append(f"Audio agrees → ×{_W_AGREE}")
+            conf = min(1.0, conf * w_agree)
+            modifiers.append(f"Audio agrees → ×{w_agree}")
         elif ac != "—":
-            conf *= _W_DISAGREE
-            modifiers.append(f"Audio disagrees → ×{_W_DISAGREE}")
+            conf *= w_disagree
+            modifiers.append(f"Audio disagrees → ×{w_disagree}")
         if fc == mc:
             conf = min(1.0, conf * 1.05)
             modifiers.append("Face agrees → ×1.05")
         return {
             "class": mc, "confidence": round(conf, 3),
             "rule": "movement_primary",
-            "rule_label": f"Movement primary — {round(mf*100)}% ≥ {round(_THETA_VIS*100)}%",
+            "rule_label": f"Movement primary — {round(mf*100)}% ≥ {round(theta_vis*100)}%",
             "detail": ", ".join(modifiers) if modifiers else "No modifiers applied",
         }
 
@@ -961,14 +960,14 @@ def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
             "class": "—", "confidence": 0.0,
             "rule": "no_signal",
             "rule_label": "No gesture detected",
-            "detail": f"All streams below thresholds (Movement<{round(_THETA_VIS*100)}%, Audio<{round(_THETA_AUD*100)}%)",
+            "detail": f"All streams below thresholds (Movement<{round(theta_vis*100)}%, Audio<{round(theta_aud*100)}%)",
         }
     best_c, best_f = max(candidates, key=lambda x: x[1])
     return {
-        "class": best_c, "confidence": round(best_f * _W_DISAGREE, 3),
+        "class": best_c, "confidence": round(best_f * w_disagree, 3),
         "rule": "low_confidence",
         "rule_label": f"Low confidence — best stream {round(best_f*100)}% (discounted)",
-        "detail": f"Movement {round(mf*100)}% < {round(_THETA_VIS*100)}%, Audio {round(af*100)}% < {round(_THETA_AUD*100)}% — uncertain",
+        "detail": f"Movement {round(mf*100)}% < {round(theta_vis*100)}%, Audio {round(af*100)}% < {round(theta_aud*100)}% — uncertain",
     }
 
 
@@ -980,3 +979,66 @@ async def get_fusion_prediction():
     au   = audio_recognizer.get_prediction()
     fused = _heuristic_fusion(mv, face, au)
     return {"movement": mv, "face": face, "audio": au, "fused": fused}
+
+
+# ─── Config ───────────────────────────────────────────────────────────────────
+
+# Keys that take effect immediately (read at call time, not cached at startup)
+_LIVE_KEYS = {
+    "THETA_AUD", "THETA_VIS", "W_AGREE", "W_DISAGREE",
+    "CONFIDENCE_THRESHOLD",
+    "COLOR_LEFT_HAND", "COLOR_RIGHT_HAND", "COLOR_POSE", "COLOR_FACE_OVAL",
+}
+
+# Keys that require a server restart to take effect (baked into buffers/models at init)
+_RESTART_KEYS = {
+    "SAMPLE_RATE", "WINDOW_DURATION", "HOP_DURATION", "N_MFCC",
+    "FPS_CAP", "JPEG_QUALITY",
+    "MEDIAPIPE_MODEL_COMPLEXITY", "MEDIAPIPE_DETECTION_CONFIDENCE", "MEDIAPIPE_TRACKING_CONFIDENCE",
+    "WINDOW_SIZE", "PREDICTION_INTERVAL",
+    "EPOCHS", "BATCH_SIZE", "LEARNING_RATE", "TEST_SIZE",
+    "VELOCITY_THRESHOLD", "ACCELERATION_THRESHOLD", "FRAME_WINDOW", "KBEST_K",
+}
+
+
+@app.get("/api/config")
+async def get_config():
+    all_keys = _LIVE_KEYS | _RESTART_KEYS
+    return {
+        "values": {k: getattr(cfg, k) for k in all_keys},
+        "live_keys": sorted(_LIVE_KEYS),
+        "restart_keys": sorted(_RESTART_KEYS),
+    }
+
+
+@app.post("/api/config/apply")
+async def apply_config(updates: dict):
+    applied, skipped = {}, {}
+    for key, value in updates.items():
+        if key in _LIVE_KEYS:
+            setattr(cfg, key, type(getattr(cfg, key))(value))
+            applied[key] = value
+        elif key in _RESTART_KEYS:
+            skipped[key] = "restart required"
+        else:
+            skipped[key] = "unknown key"
+    return {"status": "applied", "applied": applied, "skipped": skipped}
+
+
+@app.post("/api/config/reset")
+async def reset_config():
+    import importlib
+    import app.config as _cfg_mod
+    importlib.reload(_cfg_mod)
+    # Re-point the local reference so the reloaded values are used
+    global cfg
+    import app.config as cfg  # noqa: F811
+    return {"status": "reset"}
+
+
+@app.post("/api/camera/reinitialise")
+async def reinitialise_camera():
+    """Restart MediaPipe Holistic (pick up updated model_complexity etc.)."""
+    processor.stop()
+    processor.start()
+    return {"status": "reinitialised"}

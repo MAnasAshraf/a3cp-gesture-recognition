@@ -6,11 +6,11 @@ from pathlib import Path
 from collections import deque
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+import app.config as cfg
 
 MODEL_PATH   = Path(__file__).parent.parent.parent / "data" / "models" / "face_model.h5"
 ENCODER_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "face_label_encoder.pkl"
 
-CONFIDENCE_THRESHOLD = 0.50
 FACE_COLS = slice(253, 1657)  # face landmark slice of the full 1657-dim landmark vector
 
 
@@ -63,7 +63,7 @@ class FaceRecognizer:
         conf  = float(probs[idx])
         result = (
             {"class": self.le.classes_[idx], "confidence": conf}
-            if conf >= CONFIDENCE_THRESHOLD
+            if conf >= cfg.CONFIDENCE_THRESHOLD
             else {"class": "—", "confidence": conf}
         )
         with self._lock:

@@ -5,6 +5,7 @@ import time
 import numpy as np
 from pathlib import Path
 from .features import identify_keyframes, FEATURE_SIZE
+import app.config as cfg
 
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "gestures.csv"
 HEADER = ["class", "sequence_id"] + [f"f_{i}" for i in range(FEATURE_SIZE)]
@@ -70,7 +71,7 @@ class RecordingSession:
             else:
                 next_id = 1
 
-            frame_window = 5
+            frame_window = cfg.FRAME_WINDOW
             rows_written = 0
             with open(self._data_path, 'a', newline='') as f:
                 writer = csv.writer(f)
