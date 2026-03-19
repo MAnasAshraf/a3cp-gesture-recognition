@@ -65,8 +65,8 @@ class TrainingSession:
             y_enc = le.fit_transform(y)
             y_oh = to_categorical(y_enc)
 
-            # Normalize angles (columns 162-175)
-            angle_positions = np.arange(162, 176)
+            # Normalize angles: left hand (162–175) and right hand (239–252)
+            angle_positions = np.concatenate([np.arange(162, 176), np.arange(239, 253)])
             X[:, :, angle_positions] /= 180.0
 
             self.logs.append(f"Classes: {list(le.classes_)}")

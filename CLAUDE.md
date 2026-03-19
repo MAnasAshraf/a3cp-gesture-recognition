@@ -48,24 +48,59 @@ AudioContext to the same rate avoids any resampling.
 |------|---------|
 | `app/main.py` | FastAPI app, all HTTP + WebSocket endpoints |
 | `app/modules/camera.py` | MediaPipe Holistic, returns JSON landmarks |
-| `app/modules/features.py` | Landmark extraction → flat numpy array |
+| `app/modules/features.py` | Landmark extraction → flat numpy array (1657-dim) |
 | `app/modules/recorder.py` | Captures landmark frames during recording |
 | `app/modules/trainer.py` | LSTM training on movement gesture CSV |
 | `app/modules/recognizer.py` | Sliding window LSTM inference (movement) |
+| `app/modules/face_trainer.py` | LSTM training on face landmarks only |
+| `app/modules/face_recognizer.py` | Sliding window LSTM inference (face) |
 | `app/modules/audio_recorder.py` | Receives browser PCM chunks, extracts MFCCs |
 | `app/modules/audio_trainer.py` | LSTM training on audio gesture CSV |
 | `app/modules/audio_recognizer.py` | Rolling buffer LSTM inference (audio) |
 | `app/static/index.html` | Entire frontend — single-page app |
+
+## Feature vector layout (1657-dim)
+```
+Pose:        cols   0–98    (33 landmarks × 3)
+Left hand:   cols  99–161   (21 landmarks × 3)
+Left angles: cols 162–175   (14 joint angles)
+Right hand:  cols 176–238   (21 landmarks × 3)
+Right angles:cols 239–252   (14 joint angles)
+Face:        cols 253–1656  (468 landmarks × 3)
+```
+Constants exported from `features.py`:
+- `FEATURE_SIZE = 1657`
+- `FACE_COL_START = 253`, `FACE_COL_END = 1657`
+- `LEFT_ANGLE_COLS = np.arange(162, 176)`
+- `RIGHT_ANGLE_COLS = np.arange(239, 253)`
+
+**BREAKING CHANGE (2026-03-18):** Right hand added; FEATURE_SIZE changed 1580 → 1657.
+Any `movement_model.h5` or `face_model.h5` trained before this date must be deleted
+and retrained from scratch with new recordings.
 
 ## Data
 Per-user paths (feature/multi-user branch):
 - `data/users/{username}/gestures.csv` — movement gesture data
 - `data/users/{username}/audio_gestures.csv` — audio gesture data (MFCC, 43-dim)
 - `data/users/{username}/models/movement_model.h5` + `label_encoder.pkl`
+- `data/users/{username}/models/face_model.h5` + `face_label_encoder.pkl`
 - `data/users/{username}/models/audio_model.h5` + `audio_label_encoder.pkl`
+- `data/users/{username}/models/audio_scaler.pkl` + `audio_selector.pkl`
 
 Legacy fallback paths (if no username supplied):
 - `data/gestures.csv`, `data/audio_gestures.csv`, `data/models/`
+
+## Fusion approach
+Confidence-based heuristic (matches team notebook cell 42, no meta-learner):
+- `THETA_AUD = 0.90` — audio overrides everything if confidence ≥ threshold
+- `THETA_VIS = 0.85` — movement wins at this confidence, boosted/discounted by audio/face agreement
+- `W_AGREE = 1.10`, `W_DISAGREE = 0.90` — agreement bonus / disagreement penalty
+- Endpoint: `GET /api/fusion/prediction`
+
+## Audio pipeline
+- 43-dim MFCCs → StandardScaler → SelectKBest(k=14) → LSTM(64) → Dense(32,relu) → Dense(n,softmax)
+- Scaler and selector saved alongside model and loaded during inference
+- Matches notebook cells 29/30 (feature selection) and cell 33 (architecture)
 
 ## Known constraints
 - Each gesture class needs **at least 2 recordings** before training (stratified split)
@@ -81,5 +116,5 @@ Legacy fallback paths (if no username supplied):
 - Camera ping-pong: browser sends JPEG at ≤15fps, server returns JSON landmarks
 - Audio: `AudioContext({ sampleRate: 22050 })` → `ScriptProcessorNode(4096)` → WebSocket
 - Skeleton drawn with Canvas2D on a transparent overlay (video always live underneath)
-- Fusion prediction: `/api/fusion/prediction` combines movement + audio with
-  confidence-weighted logic (agreement bonus, discount when models disagree)
+- Fusion prediction: `/api/fusion/prediction` combines movement + audio + face with
+  confidence-weighted heuristic (agreement bonus, discount when models disagree)

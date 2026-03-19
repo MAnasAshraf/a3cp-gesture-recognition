@@ -5,6 +5,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import joblib
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
@@ -24,11 +25,14 @@ from .modules.recognizer import recognizer
 from .modules.audio_recorder import AudioRecordingSession, DATA_PATH as AUDIO_DATA_PATH, ensure_csv as audio_ensure_csv
 from .modules.audio_trainer import AudioTrainingSession, MODEL_PATH as AUDIO_MODEL_PATH
 from .modules.audio_recognizer import audio_recognizer
+from .modules.face_trainer import FaceTrainingSession
+from .modules.face_recognizer import face_recognizer
 
 import app.modules.recorder as recorder_module
 import app.modules.trainer as trainer_module
 import app.modules.audio_recorder as audio_recorder_module
 import app.modules.audio_trainer as audio_trainer_module
+import app.modules.face_trainer as face_trainer_module
 
 app = FastAPI(title="GestureAI")
 
@@ -67,6 +71,10 @@ def _user_paths(username: str) -> dict:
         "mv_encoder":    d / "models" / "label_encoder.pkl",
         "au_model":      d / "models" / "audio_model.h5",
         "au_encoder":    d / "models" / "audio_label_encoder.pkl",
+        "face_model":    d / "models" / "face_model.h5",
+        "face_encoder":  d / "models" / "face_label_encoder.pkl",
+        "au_scaler":     d / "models" / "audio_scaler.pkl",
+        "au_selector":   d / "models" / "audio_selector.pkl",
     }
 
 
@@ -318,10 +326,21 @@ async def start_inference(username: str = Query(default="")):
             _validate_username(username)
             p = _user_paths(username)
             recognizer.load(model_path=p["mv_model"], encoder_path=p["mv_encoder"])
+            if p["face_model"].exists():
+                face_recognizer.load(model_path=p["face_model"], encoder_path=p["face_encoder"])
         else:
             recognizer.load()
+            fa_path = Path(__file__).parent.parent / "data" / "models" / "face_model.h5"
+            if fa_path.exists():
+                face_recognizer.load()
+
+        def _combined_callback(lm):
+            recognizer.add_frame(lm)
+            if face_recognizer.is_loaded():
+                face_recognizer.add_frame(lm)
+
         processor.mode = "inference"
-        processor.landmark_callback = recognizer.add_frame
+        processor.landmark_callback = _combined_callback
         return {"status": "started"}
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
@@ -458,6 +477,80 @@ async def audio_record_status():
     }
 
 
+# ─── Joint Recording ──────────────────────────────────────────────────────────
+
+class JointRecordRequest(BaseModel):
+    gesture_name: str
+    duration: int = 15
+    username: str = ""
+
+
+@app.post("/api/joint/record/start")
+async def start_joint_recording(req: JointRecordRequest):
+    if not req.gesture_name.strip():
+        raise HTTPException(400, "Gesture name required")
+
+    gesture = req.gesture_name.strip()
+    mv_data_path = None
+    au_data_path = None
+    if req.username:
+        _validate_username(req.username)
+        paths = _user_paths(req.username)
+        mv_data_path = paths["gestures_csv"]
+        au_data_path = paths["audio_csv"]
+
+    mv_session = RecordingSession(gesture, req.duration, data_path=mv_data_path)
+    recorder_module.current_session = mv_session
+    processor.landmark_callback = mv_session.add_landmark
+    processor.mode = "recording"
+    mv_session.start()
+
+    au_session = AudioRecordingSession(gesture, req.duration, data_path=au_data_path)
+    audio_recorder_module.current_session = au_session
+    au_session.start()
+
+    return {"status": "recording", "gesture": gesture, "duration": req.duration}
+
+
+@app.post("/api/joint/record/stop")
+async def stop_joint_recording():
+    mv_session = recorder_module.current_session
+    if mv_session and mv_session.status == "recording":
+        mv_session.stop()
+    processor.landmark_callback = None
+    processor.mode = "preview"
+
+    au_session = audio_recorder_module.current_session
+    if au_session and au_session.status == "recording":
+        au_session.stop()
+    return {"status": "stopped"}
+
+
+@app.get("/api/joint/record/status")
+async def joint_record_status():
+    mv = recorder_module.current_session
+    au = audio_recorder_module.current_session
+    mv_s = {"status": "idle", "progress": 0.0, "frames_saved": 0} if not mv else {
+        "status": mv.status, "progress": mv.progress, "frames_saved": mv.frames_saved
+    }
+    au_s = {"status": "idle", "progress": 0.0, "frames_saved": 0} if not au else {
+        "status": au.status, "progress": au.progress, "frames_saved": au.frames_saved
+    }
+    combined = "idle"
+    if mv_s["status"] == "recording" or au_s["status"] == "recording":
+        combined = "recording"
+    elif mv_s["status"] == "error" or au_s["status"] == "error":
+        combined = "error"
+    elif mv_s["status"] == "done" or au_s["status"] == "done":
+        combined = "done"
+    return {
+        "status": combined,
+        "progress": (mv_s["progress"] + au_s["progress"]) / 2,
+        "movement": mv_s,
+        "audio": au_s,
+    }
+
+
 # ─── Audio Training ───────────────────────────────────────────────────────────
 
 class AudioTrainRequest(BaseModel):
@@ -499,6 +592,49 @@ async def audio_train_status():
     }
 
 
+# ─── Face Training ────────────────────────────────────────────────────────────
+
+class FaceTrainRequest(BaseModel):
+    epochs: int = 50
+    username: str = ""
+
+
+@app.post("/api/face/train/start")
+async def start_face_training(req: FaceTrainRequest):
+    if face_trainer_module.current_training and face_trainer_module.current_training.status == "running":
+        raise HTTPException(409, "Face training already in progress")
+
+    data_path = None
+    model_dir = None
+    if req.username:
+        _validate_username(req.username)
+        p = _user_paths(req.username)
+        data_path = p["gestures_csv"]
+        model_dir = p["models_dir"]
+
+    session = FaceTrainingSession(req.epochs, data_path=data_path, model_dir=model_dir)
+    face_trainer_module.current_training = session
+    session.start()
+    return {"status": "started"}
+
+
+@app.get("/api/face/train/status")
+async def face_train_status():
+    session = face_trainer_module.current_training
+    if not session:
+        return {"status": "idle", "progress": 0, "logs": [], "history": {}, "message": ""}
+    return {
+        "status": session.status,
+        "progress": session.progress,
+        "logs": session.logs[-20:],
+        "history": session.history,
+        "final_accuracy": session.final_accuracy,
+        "message": session.message,
+    }
+
+
+
+
 # ─── Audio Inference ──────────────────────────────────────────────────────────
 
 @app.post("/api/audio/inference/start")
@@ -507,7 +643,10 @@ async def start_audio_inference(username: str = Query(default="")):
         if username:
             _validate_username(username)
             p = _user_paths(username)
-            audio_recognizer.load(model_path=p["au_model"], encoder_path=p["au_encoder"])
+            audio_recognizer.load(
+                model_path=p["au_model"], encoder_path=p["au_encoder"],
+                scaler_path=p["au_scaler"], selector_path=p["au_selector"],
+            )
         else:
             audio_recognizer.load()
         audio_recognizer.start()
@@ -540,7 +679,7 @@ def _analyse_video(video_path: str, model_path: Path, encoder_path: Path) -> dic
     from .modules.features import extract_landmarks
 
     CONFIDENCE_THRESHOLD = 0.50
-    ANGLE_COLS = slice(162, 176)
+    ANGLE_COLS = np.concatenate([np.arange(162, 176), np.arange(239, 253)])
 
     model = load_model(model_path)
     le    = joblib.load(encoder_path)
@@ -653,26 +792,191 @@ async def inference_video(
         os.unlink(tmp_path)
 
 
+# ─── Video file training data extraction ─────────────────────────────────────
+
+def _extract_video_training_data(video_path: str, gesture_name: str, data_path: Path) -> dict:
+    """Run MediaPipe on a video, identify keyframes, save rows to gestures CSV."""
+    import csv
+    import cv2
+    import mediapipe as mp
+    import pandas as pd
+    from .modules.features import extract_landmarks, identify_keyframes
+    from .modules.recorder import ensure_csv
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError("Could not open video file.")
+
+    fps        = cap.get(cv2.CAP_PROP_FPS) or 30
+    frame_skip = max(1, int(fps / 15))   # sample at ~15 fps
+
+    mp_holistic = mp.solutions.holistic
+    holistic = mp_holistic.Holistic(
+        model_complexity=1,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5,
+    )
+
+    landmarks = []
+    frame_idx = 0
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_idx % frame_skip != 0:
+                frame_idx += 1
+                continue
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb.flags.writeable = False
+            results = holistic.process(rgb)
+            lm = extract_landmarks(results)
+            if lm is not None:
+                landmarks.append(lm)
+            frame_idx += 1
+    finally:
+        cap.release()
+        holistic.close()
+
+    if len(landmarks) < 3:
+        raise ValueError("Not enough usable frames detected. Ensure hands/body are visible throughout the video.")
+
+    arr      = np.array(landmarks)
+    keyframes = identify_keyframes(arr)
+    if not keyframes:
+        raise ValueError("No significant gesture keyframes detected in video.")
+
+    ensure_csv(data_path)
+    if data_path.exists() and data_path.stat().st_size > 0:
+        df      = pd.read_csv(data_path)
+        next_id = int(df["sequence_id"].max()) + 1 if len(df) > 0 else 1
+    else:
+        next_id = 1
+
+    frame_window = 5
+    rows_written = 0
+    with open(data_path, "a", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        seq_id = next_id
+        for kf in keyframes:
+            start_idx = max(0, kf - frame_window)
+            end_idx   = min(len(arr), kf + frame_window + 1)
+            for idx in range(start_idx, end_idx):
+                writer.writerow([gesture_name, seq_id] + list(arr[idx]))
+                rows_written += 1
+            seq_id += 1
+
+    return {
+        "status":    "done",
+        "gesture":   gesture_name,
+        "rows_saved": rows_written,
+        "sequences": len(keyframes),
+        "message":   f"Saved {rows_written} rows ({len(keyframes)} sequences) for '{gesture_name}'",
+    }
+
+
+@app.post("/api/record/video-file")
+async def record_from_video(
+    file:         UploadFile = File(...),
+    gesture_name: str        = Query(...),
+    username:     str        = Query(default=""),
+):
+    """Process a video file through MediaPipe and save extracted keyframes as training data."""
+    if not gesture_name.strip():
+        raise HTTPException(400, "Gesture name required")
+
+    if username:
+        _validate_username(username)
+        data_path = _user_paths(username)["gestures_csv"]
+    else:
+        data_path = DATA_PATH
+
+    suffix = Path(file.filename).suffix if file.filename else ".mp4"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        loop   = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None, _extract_video_training_data, tmp_path, gesture_name.strip(), data_path
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    finally:
+        os.unlink(tmp_path)
+
+
 # ─── Fusion ───────────────────────────────────────────────────────────────────
+# Confidence thresholds matching the researcher's notebook (cell 42)
+_THETA_VIS   = 0.85   # movement must exceed this to be primary
+_THETA_AUD   = 0.90   # audio overrides all streams at this confidence
+_W_AGREE     = 1.10   # boost when two streams agree
+_W_DISAGREE  = 0.90   # discount when streams disagree
+
+
+def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
+    mc, mf = mv["class"],   mv["confidence"]
+    ac, af = au["class"],   au["confidence"]
+    fc, ff = face["class"], face["confidence"]  # noqa: F841
+
+    # Audio override: strong audio signal wins regardless of movement
+    if ac != "—" and af >= _THETA_AUD:
+        agreed = mc == ac
+        conf = min(1.0, af * _W_AGREE) if agreed else af
+        modifier = f"Movement agreed → ×{_W_AGREE}" if agreed else "Movement disagreed (no boost)"
+        return {
+            "class": ac, "confidence": round(conf, 3),
+            "rule": "audio_override",
+            "rule_label": f"Audio override — {round(af*100)}% ≥ {round(_THETA_AUD*100)}%",
+            "detail": modifier,
+        }
+
+    # Movement primary: above vision threshold
+    if mc != "—" and mf >= _THETA_VIS:
+        conf = mf
+        modifiers = []
+        if ac == mc:
+            conf = min(1.0, conf * _W_AGREE)
+            modifiers.append(f"Audio agrees → ×{_W_AGREE}")
+        elif ac != "—":
+            conf *= _W_DISAGREE
+            modifiers.append(f"Audio disagrees → ×{_W_DISAGREE}")
+        if fc == mc:
+            conf = min(1.0, conf * 1.05)
+            modifiers.append("Face agrees → ×1.05")
+        return {
+            "class": mc, "confidence": round(conf, 3),
+            "rule": "movement_primary",
+            "rule_label": f"Movement primary — {round(mf*100)}% ≥ {round(_THETA_VIS*100)}%",
+            "detail": ", ".join(modifiers) if modifiers else "No modifiers applied",
+        }
+
+    # Below all thresholds: highest-confidence stream wins (discounted)
+    candidates = [(mc, mf), (ac, af), (fc, ff)]
+    candidates = [(c, f) for c, f in candidates if c and c != "—"]
+    if not candidates:
+        return {
+            "class": "—", "confidence": 0.0,
+            "rule": "no_signal",
+            "rule_label": "No gesture detected",
+            "detail": f"All streams below thresholds (Movement<{round(_THETA_VIS*100)}%, Audio<{round(_THETA_AUD*100)}%)",
+        }
+    best_c, best_f = max(candidates, key=lambda x: x[1])
+    return {
+        "class": best_c, "confidence": round(best_f * _W_DISAGREE, 3),
+        "rule": "low_confidence",
+        "rule_label": f"Low confidence — best stream {round(best_f*100)}% (discounted)",
+        "detail": f"Movement {round(mf*100)}% < {round(_THETA_VIS*100)}%, Audio {round(af*100)}% < {round(_THETA_AUD*100)}% — uncertain",
+    }
+
 
 @app.get("/api/fusion/prediction")
 async def get_fusion_prediction():
-    """Return movement prediction, audio prediction, and a fused result."""
-    mv = recognizer.get_prediction()
-    au = audio_recognizer.get_prediction()
-
-    # Confidence-weighted fusion
-    mv_conf = mv["confidence"] if mv["class"] != "—" else 0.0
-    au_conf = au["confidence"] if au["class"] != "—" else 0.0
-    total   = mv_conf + au_conf
-
-    if total == 0:
-        fused = {"class": "—", "confidence": 0.0}
-    elif mv["class"] == au["class"]:
-        fused = {"class": mv["class"], "confidence": min(1.0, total / 2 + 0.1)}
-    elif mv_conf >= au_conf:
-        fused = {"class": mv["class"], "confidence": mv_conf * 0.7}
-    else:
-        fused = {"class": au["class"], "confidence": au_conf * 0.7}
-
-    return {"movement": mv, "audio": au, "fused": fused}
+    """Return movement, face, audio predictions plus confidence-weighted fused result."""
+    mv   = recognizer.get_prediction()
+    face = face_recognizer.get_prediction() if face_recognizer.is_loaded() else {"class": "—", "confidence": 0.0}
+    au   = audio_recognizer.get_prediction()
+    fused = _heuristic_fusion(mv, face, au)
+    return {"movement": mv, "face": face, "audio": au, "fused": fused}

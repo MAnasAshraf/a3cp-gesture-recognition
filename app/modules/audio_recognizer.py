@@ -8,8 +8,10 @@ from .audio_recorder import (
     extract_audio_features, SAMPLE_RATE, AUDIO_FEATURE_SIZE
 )
 
-MODEL_PATH   = Path(__file__).parent.parent.parent / "data" / "models" / "audio_model.h5"
-ENCODER_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "audio_label_encoder.pkl"
+MODEL_PATH    = Path(__file__).parent.parent.parent / "data" / "models" / "audio_model.h5"
+ENCODER_PATH  = Path(__file__).parent.parent.parent / "data" / "models" / "audio_label_encoder.pkl"
+SCALER_PATH   = Path(__file__).parent.parent.parent / "data" / "models" / "audio_scaler.pkl"
+SELECTOR_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "audio_selector.pkl"
 
 WINDOW_SAMPLES       = int(0.5 * SAMPLE_RATE)   # 11 025 samples
 HOP_SAMPLES          = int(0.1 * SAMPLE_RATE)    # 2 205 samples
@@ -20,21 +22,29 @@ class AudioRecognizer:
     def __init__(self):
         self.model      = None
         self.le         = None
+        self._scaler    = None
+        self._selector  = None
         self.prediction = {"class": "—", "confidence": 0.0}
+        self._probs     = None
         self._lock      = threading.Lock()
         self._buf       = deque(maxlen=WINDOW_SAMPLES * 3)
         self._pending   = 0
         self._active    = False
         self._seq_len   = None
 
-    def load(self, model_path: Path = None, encoder_path: Path = None):
+    def load(self, model_path: Path = None, encoder_path: Path = None,
+             scaler_path: Path = None, selector_path: Path = None):
         from tensorflow.keras.models import load_model
-        mp = model_path or MODEL_PATH
+        mp = model_path  or MODEL_PATH
         ep = encoder_path or ENCODER_PATH
+        sp = scaler_path  or SCALER_PATH
+        sl = selector_path or SELECTOR_PATH
         if not mp.exists():
             raise FileNotFoundError("No audio model found. Train an audio model first.")
         self.model = load_model(mp)
         self.le    = joblib.load(ep)
+        self._scaler   = joblib.load(sp)   if sp.exists() else None
+        self._selector = joblib.load(sl)   if sl.exists() else None
         try:
             self._seq_len = self.model.input_shape[1]
         except Exception:
@@ -81,6 +91,11 @@ class AudioRecognizer:
             feats = extract_audio_features(audio_window)
             if feats is None:
                 return
+            # Apply SelectKBest pipeline if available (matches notebook cell 30)
+            if self._scaler is not None and self._selector is not None:
+                feats = self._selector.transform(
+                    self._scaler.transform(feats.reshape(1, -1))
+                )[0]
             X = np.array([[feats]], dtype="float32")
             if self._seq_len and self._seq_len > 1:
                 X = pad_sequences(X, maxlen=self._seq_len, padding="post",
@@ -95,12 +110,18 @@ class AudioRecognizer:
             )
             with self._lock:
                 self.prediction = result
+                self._probs     = probs.tolist()
         except Exception:
             pass
 
     def get_prediction(self) -> dict:
         with self._lock:
             return dict(self.prediction)
+
+    def get_probs(self) -> list:
+        """Return raw softmax probabilities (list of floats) for the meta-learner."""
+        with self._lock:
+            return list(self._probs) if self._probs is not None else None
 
 
 audio_recognizer = AudioRecognizer()

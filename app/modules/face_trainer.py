@@ -4,27 +4,23 @@ import pandas as pd
 from pathlib import Path
 import joblib
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 
-DATA_PATH    = Path(__file__).parent.parent.parent / "data" / "audio_gestures.csv"
+DATA_PATH    = Path(__file__).parent.parent.parent / "data" / "gestures.csv"
 MODEL_DIR    = Path(__file__).parent.parent.parent / "data" / "models"
-MODEL_PATH   = MODEL_DIR / "audio_model.h5"
-ENCODER_PATH = MODEL_DIR / "audio_label_encoder.pkl"
 
-KBEST_K = 14   # matches notebook SelectKBest(k=14)
+FACE_START = 253   # first face landmark column index (after pose+both_hands)
+FACE_END   = 1657  # one past last face landmark column index (1404 dims total)
 
 
-class AudioTrainingSession:
+class FaceTrainingSession:
     def __init__(self, epochs: int = 50, data_path: Path = None, model_dir: Path = None):
         self.epochs         = epochs
         self._data_path     = data_path or DATA_PATH
         self._model_dir     = model_dir or MODEL_DIR
-        self._model_path    = self._model_dir / "audio_model.h5"
-        self._encoder_path  = self._model_dir / "audio_label_encoder.pkl"
-        self._scaler_path   = self._model_dir / "audio_scaler.pkl"
-        self._selector_path = self._model_dir / "audio_selector.pkl"
+        self._model_path    = self._model_dir / "face_model.h5"
+        self._encoder_path  = self._model_dir / "face_label_encoder.pkl"
         self.status         = "idle"
         self.progress       = 0.0
         self.logs           = []
@@ -45,44 +41,23 @@ class AudioTrainingSession:
             from tensorflow.keras.optimizers import Adam
             from tensorflow.keras.callbacks import Callback
 
-            self.logs.append("Loading audio data...")
+            self.logs.append("Loading data...")
             df = pd.read_csv(self._data_path)
             if len(df) < 10:
-                raise ValueError("Not enough data. Record more audio gestures first.")
+                raise ValueError("Not enough training data. Record more gestures first.")
 
             df["unique_id"] = df["class"] + "_" + df["sequence_id"].astype(str)
-            feature_cols = [c for c in df.columns if c not in ["class", "sequence_id", "unique_id"]]
-
-            # ── Step 1: aggregate to gesture level to fit scaler + SelectKBest ──
-            self.logs.append("Fitting SelectKBest feature selector...")
-            df_agg = df.groupby(["class", "sequence_id"])[feature_cols].mean().reset_index()
-            X_agg  = df_agg[feature_cols].values
-            le_agg = LabelEncoder()
-            y_agg  = le_agg.fit_transform(df_agg["class"].values)
-
-            scaler   = StandardScaler()
-            X_agg_sc = scaler.fit_transform(X_agg)
-            k        = min(KBEST_K, X_agg.shape[1])
-            selector = SelectKBest(score_func=f_classif, k=k)
-            selector.fit(X_agg_sc, y_agg)
-
-            self._model_dir.mkdir(parents=True, exist_ok=True)
-            joblib.dump(scaler,   self._scaler_path)
-            joblib.dump(selector, self._selector_path)
-            self.logs.append(f"Selected {k} best audio features from {X_agg.shape[1]}.")
-
-            # ── Step 2: apply selector to every frame, then rebuild sequences ──
-            X_frames     = df[feature_cols].values
-            X_frames_sel = selector.transform(scaler.transform(X_frames))
-
             unique_ids = df["unique_id"].unique()
+
             sequences, labels = [], []
             for uid in unique_ids:
-                mask = (df["unique_id"] == uid).values
-                sequences.append(X_frames_sel[mask])
-                labels.append(df.loc[df["unique_id"] == uid, "class"].iloc[0])
+                seq_df   = df[df["unique_id"] == uid]
+                all_feat = seq_df.drop(columns=["class", "sequence_id", "unique_id"]).values
+                # Slice only face landmark columns
+                sequences.append(all_feat[:, FACE_START:FACE_END])
+                labels.append(seq_df["class"].iloc[0])
 
-            X = pad_sequences(sequences, padding="post", dtype="float32", value=0.0)
+            X = pad_sequences(sequences, padding="post", dtype="float32", value=-1.0)
             y = np.array(labels)
 
             le    = LabelEncoder()
@@ -90,14 +65,13 @@ class AudioTrainingSession:
             y_oh  = to_categorical(y_enc)
 
             self.logs.append(f"Classes: {list(le.classes_)}")
-            self.logs.append(f"Total sequences: {len(sequences)}, feature dims: {X.shape[2]}")
+            self.logs.append(f"Total sequences: {len(sequences)}")
 
             if len(np.unique(y_enc)) < 2:
-                raise ValueError("Need at least 2 audio gesture classes to train.")
+                raise ValueError("Need at least 2 gesture classes to train.")
 
-            # Check if every class has >= 2 sequences (required for stratified split)
             class_counts = np.bincount(y_enc)
-            min_count = int(class_counts.min())
+            min_count    = int(class_counts.min())
             if min_count < 2:
                 sparse = [le.classes_[i] for i, c in enumerate(class_counts) if c < 2]
                 raise ValueError(
@@ -105,9 +79,8 @@ class AudioTrainingSession:
                     f"These have only 1: {sparse}. Record more sessions and try again."
                 )
 
-            # Use stratify only when every class has enough samples for the split
-            n_test = max(1, int(len(sequences) * 0.2))
-            use_stratify = min_count >= 2 and n_test >= len(le.classes_)
+            n_test        = max(1, int(len(sequences) * 0.2))
+            use_stratify  = min_count >= 2 and n_test >= len(le.classes_)
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y_oh, test_size=0.2, random_state=42,
                 stratify=y_enc if use_stratify else None
@@ -115,12 +88,12 @@ class AudioTrainingSession:
 
             cw = compute_class_weight("balanced", classes=np.unique(y_enc), y=y_enc)
 
-            # Architecture matches notebook cell 33: LSTM(64) → Dense(32) → Dense(n)
             model = Sequential([
-                Masking(mask_value=0.0, input_shape=(X_train.shape[1], X_train.shape[2])),
-                LSTM(64, return_sequences=False),
+                Masking(mask_value=-1.0, input_shape=(X_train.shape[1], X_train.shape[2])),
+                LSTM(64, return_sequences=True),
                 Dropout(0.3),
-                Dense(32, activation="relu"),
+                LSTM(64),
+                Dropout(0.3),
                 Dense(y_train.shape[1], activation="softmax"),
             ])
             model.compile(
@@ -169,4 +142,4 @@ class AudioTrainingSession:
             self.logs.append(f"Error: {e}")
 
 
-current_training: AudioTrainingSession = None
+current_training: FaceTrainingSession = None

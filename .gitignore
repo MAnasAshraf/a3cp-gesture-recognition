@@ -3,8 +3,12 @@ venv/
 
 # Training data and models (large files)
 data/gestures.csv
+data/audio_gestures.csv
 data/models/*.h5
 data/models/*.pkl
+
+# Per-user data and models (personal training data + binary model files)
+data/users/
 
 # Keep the data directory structure
 !data/.gitkeep

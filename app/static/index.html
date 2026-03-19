@@ -612,24 +612,54 @@
     </div>
 
     <div class="nav-section">
-      <div class="nav-label">Navigation</div>
       <div class="nav-item active" onclick="loadPage('dashboard')">
         <span class="nav-icon">⬡</span> Dashboard
       </div>
-      <div class="nav-label" style="margin-top:12px;">Movement</div>
-      <div class="nav-item" onclick="loadPage('record')">
-        <span class="nav-icon">⏺</span> Record
+
+      <!-- Recording mode toggle -->
+      <div style="margin:8px 0 2px;">
+        <div style="font-size:10px;letter-spacing:0.8px;text-transform:uppercase;color:rgba(255,255,255,0.45);padding:0 8px;margin-bottom:6px;">Recording Mode</div>
+        <div style="display:flex;background:rgba(255,255,255,0.08);border-radius:8px;padding:3px;gap:2px;margin:0 8px;">
+          <button id="nav-mode-sim" onclick="setRecordingMode('simultaneous')"
+            style="flex:1;padding:5px 4px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:#1C46C0;color:#fff;transition:all 0.2s;">
+            ⚡ Simultaneous
+          </button>
+          <button id="nav-mode-sep" onclick="setRecordingMode('separate')"
+            style="flex:1;padding:5px 4px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:transparent;color:rgba(255,255,255,0.6);transition:all 0.2s;">
+            📋 Separate
+          </button>
+        </div>
       </div>
-      <div class="nav-item" onclick="loadPage('train')">
-        <span class="nav-icon">⚙</span> Train
+
+      <!-- Simultaneous group -->
+      <div id="nav-group-sim">
+        <div class="nav-item" onclick="loadPage('joint-record')">
+          <span class="nav-icon">⚡</span> Record &amp; Train
+        </div>
       </div>
-      <div class="nav-label" style="margin-top:12px;">Audio</div>
-      <div class="nav-item" onclick="loadPage('audio-record')">
-        <span class="nav-icon">🎙</span> Audio Record
+
+      <!-- Separate group (hidden by default) -->
+      <div id="nav-group-sep" style="display:none;">
+        <div class="nav-label" style="margin-top:12px;">Movement</div>
+        <div class="nav-item" onclick="loadPage('record')">
+          <span class="nav-icon">⏺</span> Record
+        </div>
+        <div class="nav-item" onclick="loadPage('train')">
+          <span class="nav-icon">⚙</span> Train
+        </div>
+        <div class="nav-label" style="margin-top:12px;">Audio</div>
+        <div class="nav-item" onclick="loadPage('audio-record')">
+          <span class="nav-icon">🎙</span> Audio Record
+        </div>
+        <div class="nav-item" onclick="loadPage('audio-train')">
+          <span class="nav-icon">🔊</span> Audio Train
+        </div>
+        <div class="nav-label" style="margin-top:12px;">Fusion</div>
+        <div class="nav-item" onclick="loadPage('face-train')">
+          <span class="nav-icon">😶</span> Face Train
+        </div>
       </div>
-      <div class="nav-item" onclick="loadPage('audio-train')">
-        <span class="nav-icon">🔊</span> Audio Train
-      </div>
+
       <div class="nav-label" style="margin-top:12px;">Recognition</div>
       <div class="nav-item" onclick="loadPage('recognize')">
         <span class="nav-icon">◉</span> Recognize
@@ -760,74 +790,140 @@
 
       <div class="mb-6">
         <div class="section-title">⏺ Record Gesture</div>
-        <div class="section-sub">Use your webcam to capture gesture data. Stand clearly in frame and perform your gesture naturally.</div>
+        <div class="section-sub">Capture gesture data with your webcam, or extract it from an uploaded video file.</div>
       </div>
 
-      <div class="grid-6-4">
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:28px;">
+        <button id="rec-tab-btn-live" onclick="switchRecTab('live')"
+          style="padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:#1C46C0;border-bottom:3px solid #1C46C0;margin-bottom:-2px;transition:all 0.2s;">
+          📷 Live Camera
+        </button>
+        <button id="rec-tab-btn-video" onclick="switchRecTab('video')"
+          style="padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--text3);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all 0.2s;">
+          🎬 Upload Video
+        </button>
+      </div>
 
-        <!-- Webcam -->
-        <div>
-          <div class="webcam-container" id="rec-webcam-wrap">
-            <!-- video shows raw feed instantly; canvas overlays MediaPipe annotations -->
-            <video id="rec-camera-video" autoplay playsinline muted class="webcam-img"></video>
-            <canvas id="rec-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
-            <div class="webcam-overlay">
-              <div id="rec-live-badge" class="live-badge hidden">
-                <div class="live-dot"></div>REC
+      <!-- ── Tab: Live Camera ───────────────────────────────────────────── -->
+      <div id="rec-tab-live">
+        <div class="grid-6-4">
+
+          <!-- Webcam -->
+          <div>
+            <div class="webcam-container" id="rec-webcam-wrap">
+              <!-- video shows raw feed instantly; canvas overlays MediaPipe annotations -->
+              <video id="rec-camera-video" autoplay playsinline muted class="webcam-img"></video>
+              <canvas id="rec-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
+              <div class="webcam-overlay">
+                <div id="rec-live-badge" class="live-badge hidden">
+                  <div class="live-dot"></div>REC
+                </div>
+              </div>
+            </div>
+
+            <!-- Existing gestures -->
+            <div class="mt-4">
+              <div class="text-sm text-secondary mb-2 font-bold" style="letter-spacing:0.5px;text-transform:uppercase;">Recorded Gestures</div>
+              <div id="rec-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:36px;">
+                <span class="text-muted text-sm">Loading...</span>
               </div>
             </div>
           </div>
 
-          <!-- Existing gestures -->
-          <div class="mt-4">
-            <div class="text-sm text-secondary mb-2 font-bold" style="letter-spacing:0.5px;text-transform:uppercase;">Recorded Gestures</div>
-            <div id="rec-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:36px;">
-              <span class="text-muted text-sm">Loading...</span>
+          <!-- Controls -->
+          <div style="display:flex;flex-direction:column;gap:18px;">
+            <div class="card" style="padding:24px;">
+              <div class="form-group">
+                <label class="form-label">Gesture Name</label>
+                <input type="text" id="rec-gesture-name" class="form-input" placeholder="e.g. wave, thumbs_up, clap" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Duration: <span id="rec-dur-val" style="color:#1C46C0;font-weight:700;">60s</span></label>
+                <input type="range" id="rec-duration" min="30" max="120" value="60" oninput="document.getElementById('rec-dur-val').textContent=this.value+'s'" />
+                <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                  <span class="text-sm text-muted">30s</span>
+                  <span class="text-sm text-muted">120s</span>
+                </div>
+              </div>
+
+              <button id="rec-start-btn" class="btn btn-gradient w-full" onclick="startRecording()">
+                ⏺ Start Recording
+              </button>
+              <button id="rec-stop-btn" class="btn btn-danger w-full mt-3 hidden" onclick="stopRecording()">
+                ⏹ Stop Recording
+              </button>
             </div>
+
+            <!-- Progress -->
+            <div class="card" id="rec-progress-card" style="padding:20px;display:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span class="text-sm font-bold">Progress</span>
+                <span class="text-sm" id="rec-progress-pct" style="color:#1C46C0;">0%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="rec-progress-bar" style="width:0%;"></div>
+              </div>
+            </div>
+
+            <!-- Status card -->
+            <div class="card" id="rec-status-card" style="padding:20px;display:none;">
+              <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Status</div>
+              <div id="rec-status-badge"><span class="badge badge-muted">Idle</span></div>
+              <div id="rec-status-msg" class="text-sm text-secondary mt-3"></div>
+            </div>
+
           </div>
         </div>
+      </div>
 
-        <!-- Controls -->
-        <div style="display:flex;flex-direction:column;gap:18px;">
-          <div class="card" style="padding:24px;">
+      <!-- ── Tab: Upload Video ──────────────────────────────────────────── -->
+      <div id="rec-tab-video" class="hidden">
+        <div class="grid-2" style="max-width:900px;">
+
+          <!-- Upload card -->
+          <div class="card" style="padding:28px;">
+            <div class="card-title mb-4">Upload Video for Training</div>
+
             <div class="form-group">
               <label class="form-label">Gesture Name</label>
-              <input type="text" id="rec-gesture-name" class="form-input" placeholder="e.g. wave, thumbs_up, clap" />
+              <input type="text" id="rec-vid-gesture-name" class="form-input" placeholder="e.g. wave, thumbs_up, clap" />
             </div>
 
             <div class="form-group">
-              <label class="form-label">Duration: <span id="rec-dur-val" style="color:#1C46C0;font-weight:700;">60s</span></label>
-              <input type="range" id="rec-duration" min="30" max="120" value="60" oninput="document.getElementById('rec-dur-val').textContent=this.value+'s'" />
-              <div style="display:flex;justify-content:space-between;margin-top:6px;">
-                <span class="text-sm text-muted">30s</span>
-                <span class="text-sm text-muted">120s</span>
+              <label class="form-label">Video File</label>
+              <input type="file" id="rec-vid-file-input" accept="video/*"
+                style="width:100%;padding:10px;border:1.5px dashed #D0D8EE;border-radius:8px;background:#F4F6FB;font-size:14px;cursor:pointer;"
+                onchange="document.getElementById('rec-vid-filename').textContent=this.files[0]?.name||''" />
+              <div id="rec-vid-filename" style="font-size:12px;color:#6B7280;margin-top:6px;"></div>
+            </div>
+
+            <div class="card" style="padding:14px;background:#F4F6FB;border:none;box-shadow:none;margin-bottom:20px;">
+              <div style="font-size:12px;color:var(--text3);line-height:1.7;">
+                <strong style="color:var(--text2);">How it works:</strong> The video is processed frame-by-frame through MediaPipe to extract landmarks. Keyframes (moments of significant movement) are detected and saved as training sequences — the same format as live recording.
               </div>
             </div>
 
-            <button id="rec-start-btn" class="btn btn-gradient w-full" onclick="startRecording()">
-              ⏺ Start Recording
+            <button id="rec-vid-btn" class="btn btn-gradient w-full" onclick="trainFromVideo()">
+              ⚙ Extract &amp; Save Training Data
             </button>
-            <button id="rec-stop-btn" class="btn btn-danger w-full mt-3 hidden" onclick="stopRecording()">
-              ⏹ Stop Recording
-            </button>
-          </div>
 
-          <!-- Progress -->
-          <div class="card" id="rec-progress-card" style="padding:20px;display:none;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <span class="text-sm font-bold">Progress</span>
-              <span class="text-sm" id="rec-progress-pct" style="color:#1C46C0;">0%</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="rec-progress-bar" style="width:0%;"></div>
+            <div id="rec-vid-progress-wrap" class="hidden mt-4">
+              <div style="font-size:13px;color:#3A4070;margin-bottom:8px;" id="rec-vid-status-msg">Processing video…</div>
+              <div class="progress-track"><div class="progress-fill" id="rec-vid-progress-bar" style="width:100%;"></div></div>
             </div>
           </div>
 
-          <!-- Status card -->
-          <div class="card" id="rec-status-card" style="padding:20px;display:none;">
-            <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Status</div>
-            <div id="rec-status-badge"><span class="badge badge-muted">Idle</span></div>
-            <div id="rec-status-msg" class="text-sm text-secondary mt-3"></div>
+          <!-- Result card -->
+          <div class="card" style="padding:28px;">
+            <div class="card-title mb-4">Result</div>
+            <div id="rec-vid-result">
+              <div class="empty-state" style="padding:24px;">
+                <div class="empty-state-icon">🎬</div>
+                <div class="empty-state-text">Upload a video to extract training data</div>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -934,6 +1030,131 @@
 
 
     <!-- ══ AUDIO RECORD ═══════════════════════════════════════════════════════ -->
+    <!-- ══ JOINT RECORD ══════════════════════════════════════════════════════ -->
+    <div id="page-joint-record" class="page">
+      <div class="mb-6">
+        <div class="section-title">⚡ Simultaneous Recording</div>
+        <div class="section-sub">Perform the gesture while saying the label — movement and audio are captured together.</div>
+      </div>
+      <div class="grid-6-4">
+
+        <!-- Camera feed -->
+        <div>
+          <div class="webcam-container" id="jrec-webcam-wrap">
+            <video id="jrec-camera-video" autoplay playsinline muted class="webcam-img"></video>
+            <canvas id="jrec-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
+            <div class="webcam-overlay">
+              <div id="jrec-live-badge" class="live-badge hidden">
+                <div class="live-dot"></div>REC
+              </div>
+            </div>
+          </div>
+          <!-- Recorded classes summary -->
+          <div class="mt-4">
+            <div class="text-sm text-secondary mb-2 font-bold" style="letter-spacing:0.5px;text-transform:uppercase;">Recorded Gestures</div>
+            <div id="jrec-chips" style="display:flex;flex-wrap:wrap;gap:8px;min-height:36px;">
+              <span class="text-muted text-sm">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="card" style="padding:24px;">
+            <div class="form-group">
+              <label class="form-label">Gesture / Sound Name</label>
+              <input type="text" id="jrec-gesture-name" class="form-input" placeholder="e.g. thank_you, yes, help" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duration: <span id="jrec-dur-val" style="color:#1C46C0;font-weight:700;">15s</span></label>
+              <input type="range" id="jrec-duration" min="10" max="60" value="15" oninput="document.getElementById('jrec-dur-val').textContent=this.value+'s'" />
+              <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                <span class="text-sm text-muted">10s</span><span class="text-sm text-muted">60s</span>
+              </div>
+            </div>
+            <button id="jrec-start-btn" class="btn btn-gradient w-full" onclick="startJointRecording()">▶ Start Recording</button>
+            <button id="jrec-stop-btn" class="btn btn-danger w-full mt-3 hidden" onclick="stopJointRecording()">⏹ Stop</button>
+          </div>
+
+          <!-- Movement progress -->
+          <div class="card" style="padding:20px;">
+            <div class="text-sm font-bold mb-3" style="letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);">Movement</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span class="text-sm">Landmark frames</span>
+              <span class="text-sm" id="jrec-mv-pct" style="color:#1C46C0;">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="jrec-mv-bar" style="width:0%;"></div></div>
+            <div id="jrec-mv-status" class="mt-2"><span class="badge badge-muted">Idle</span></div>
+          </div>
+
+          <!-- Audio progress -->
+          <div class="card" style="padding:20px;">
+            <div class="text-sm font-bold mb-3" style="letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);">Audio</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span class="text-sm">MFCC frames</span>
+              <span class="text-sm" id="jrec-au-pct" style="color:#1C46C0;">0%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="jrec-au-bar" style="width:0%;background:#059669;"></div></div>
+            <div id="jrec-au-status" class="mt-2"><span class="badge badge-muted">Idle</span></div>
+          </div>
+
+          <!-- Session prompt — shown after each recording -->
+          <div id="jrec-session-prompt" style="display:none;">
+            <div class="card" style="padding:20px;border:2px solid #E5E7EB;">
+              <div class="text-sm font-bold mb-2" id="jrec-prompt-msg"></div>
+              <div id="jrec-prompt-warn" style="display:none;font-size:12px;color:#B45309;margin-bottom:12px;">
+                ⚠ At least 2 sessions per gesture are required to train.
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <button class="btn btn-gradient w-full" onclick="recordAgain()">🔄 Record Another Session</button>
+                <button id="jrec-continue-btn" class="btn w-full" style="background:#059669;color:#fff;display:none;" onclick="revealTrainSection()">✓ Continue to Train →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Joint Train section — hidden until user clicks Continue -->
+      <div id="jtrain-section" style="display:none;" class="mt-6">
+        <div class="divider"></div>
+        <div class="section-title mt-4" style="font-size:18px;">⚙ Train Both Models</div>
+        <div class="section-sub mb-4">Trains the movement model first, then the audio model automatically.</div>
+        <div class="grid-2" style="max-width:900px;">
+          <div class="card" style="padding:24px;">
+            <div class="form-group">
+              <label class="form-label">Epochs: <span id="jtrain-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+              <input type="range" id="jtrain-epochs" min="10" max="100" value="50" oninput="document.getElementById('jtrain-epoch-val').textContent=this.value" />
+              <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                <span class="text-sm text-muted">10</span><span class="text-sm text-muted">100</span>
+              </div>
+            </div>
+            <button id="jtrain-btn" class="btn btn-gradient w-full" onclick="startJointTraining()">⚙ Train Both Models</button>
+          </div>
+          <div class="card" style="padding:24px;">
+            <!-- Movement training progress -->
+            <div class="mb-4">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span class="text-sm font-bold">Movement Model</span>
+                <div id="jtrain-mv-badge"><span class="badge badge-muted">Idle</span></div>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="jtrain-mv-bar" style="width:0%;"></div></div>
+              <div class="text-sm text-secondary mt-1" id="jtrain-mv-msg"></div>
+            </div>
+            <!-- Audio training progress -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span class="text-sm font-bold">Audio Model</span>
+                <div id="jtrain-au-badge"><span class="badge badge-muted">Idle</span></div>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="jtrain-au-bar" style="width:0%;background:#059669;"></div></div>
+              <div class="text-sm text-secondary mt-1" id="jtrain-au-msg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /joint-record -->
+
+
     <div id="page-audio-record" class="page">
       <div class="mb-6">
         <div class="section-title">🎙 Record Audio Gesture</div>
@@ -1051,78 +1272,211 @@
     </div><!-- /audio-train -->
 
 
+    <!-- ══ FACE TRAIN ══════════════════════════════════════════════════════ -->
+    <div id="page-face-train" class="page">
+      <div class="mb-6">
+        <div class="section-title">😶 Train Face Model</div>
+        <div class="section-sub">Train a dedicated LSTM on face landmark data (cols 176–1579) from your recorded gestures. No new recording needed — uses the same gestures.csv.</div>
+      </div>
+      <div class="grid-2 mb-6">
+        <div class="card" style="padding:24px;">
+          <div class="form-group">
+            <label class="form-label">Epochs: <span id="ftrain-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+            <input type="range" id="ftrain-epochs" min="10" max="100" value="50" oninput="document.getElementById('ftrain-epoch-val').textContent=this.value" />
+            <div style="display:flex;justify-content:space-between;margin-top:6px;">
+              <span class="text-sm text-muted">10</span><span class="text-sm text-muted">100</span>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <button id="ftrain-btn" class="btn btn-gradient w-full" onclick="startFaceTraining()">😶 Train Face Model</button>
+          <div class="mt-4 text-sm text-secondary" style="line-height:1.6;">LSTM (64–64) trained on 1,404 MediaPipe face landmark features.</div>
+        </div>
+        <div class="card" style="padding:24px;">
+          <div class="card-title mb-3">How it works</div>
+          <div class="text-sm text-secondary" style="line-height:1.8;">
+            Face landmarks (468 points × 3) are already captured alongside body/hand landmarks during gesture recording.
+            This model learns to recognise gestures from facial expression alone — useful for users with asymmetric movement patterns.<br><br>
+            <strong>Train order:</strong> Movement → Face → (Audio) → Fusion
+          </div>
+        </div>
+      </div>
+      <div id="ftrain-progress-section" style="display:none;">
+        <div class="card mb-6" style="padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <span class="font-bold">Training Progress</span>
+            <div id="ftrain-status-badge"><span class="badge badge-blue">Running</span></div>
+          </div>
+          <div class="progress-track" style="height:12px;"><div class="progress-fill" id="ftrain-progress-bar" style="width:0%;"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <span class="text-sm text-muted" id="ftrain-epoch-progress">Epoch 0</span>
+            <span class="text-sm" id="ftrain-progress-pct" style="color:#1C46C0;">0%</span>
+          </div>
+        </div>
+        <div class="grid-2 mb-6">
+          <div class="card" style="padding:20px;"><div class="card-title mb-4">Accuracy</div><canvas id="chart-face-accuracy" height="180"></canvas></div>
+          <div class="card" style="padding:20px;"><div class="card-title mb-4">Loss</div><canvas id="chart-face-loss" height="180"></canvas></div>
+        </div>
+        <div class="card mb-6" style="padding:20px;">
+          <div class="card-title mb-4">Training Log</div>
+          <div class="log-console" id="ftrain-log"></div>
+        </div>
+        <div id="ftrain-result-card" class="card" style="padding:36px;text-align:center;display:none;">
+          <div class="text-sm text-secondary mb-2" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Final Test Accuracy</div>
+          <div class="accuracy-big" id="ftrain-final-acc">—</div>
+          <div class="text-secondary mt-3" id="ftrain-final-msg"></div>
+        </div>
+      </div>
+    </div><!-- /face-train -->
+
+
+
+
     <!-- ══ RECOGNIZE ══════════════════════════════════════════════════════ -->
     <div id="page-recognize" class="page">
 
-      <div class="mb-6">
-        <div class="section-title">◉ Live Recognition</div>
-        <div class="section-sub">Run real-time gesture recognition using your trained model. Make sure a model has been trained first.</div>
-      </div>
-
-      <div class="grid-6-4">
-
-        <!-- Camera -->
-        <div>
-          <div class="webcam-container" id="inf-webcam-wrap">
-            <video id="inf-camera-video" autoplay playsinline muted class="webcam-img"></video>
-            <canvas id="inf-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
-            <div class="webcam-overlay">
-              <div id="inf-live-badge" class="live-badge hidden">
-                <div class="live-dot"></div>LIVE
-              </div>
-            </div>
-          </div>
-          <div class="flex gap-3 mt-4">
-            <button id="inf-start-btn" class="btn btn-emerald" onclick="startInference()">▶ Start Recognition</button>
-            <button id="inf-stop-btn" class="btn btn-danger hidden" onclick="stopInference()">⏹ Stop</button>
-          </div>
+      <!-- ── Sub-page: Chooser ─────────────────────────────────────────── -->
+      <div id="rec-sub-home">
+        <div class="mb-8">
+          <div class="section-title">◉ Recognition</div>
+          <div class="section-sub">Choose how you want to use gesture recognition.</div>
         </div>
+        <div class="grid-2" style="max-width:720px;">
 
-        <!-- Prediction panel -->
-        <div style="display:flex;flex-direction:column;gap:16px;">
-
-          <!-- Fused result -->
-          <div class="card" style="padding:28px;border:2px solid #1C46C0;">
-            <div class="text-sm text-muted mb-3" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Fused Prediction</div>
-            <div class="prediction-big" id="inf-class">—</div>
-            <div style="margin-top:16px;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                <span class="text-sm text-secondary">Confidence</span>
-                <span class="text-sm font-bold" id="inf-conf-text" style="color:#1C46C0;">0%</span>
-              </div>
-              <div class="conf-bar-track"><div class="conf-bar-fill" id="inf-conf-bar" style="width:0%;"></div></div>
-            </div>
+          <div class="card" style="padding:40px;cursor:pointer;text-align:center;border:2px solid transparent;transition:border-color 0.2s;"
+               onclick="showRecLive()"
+               onmouseover="this.style.borderColor='#1C46C0'"
+               onmouseout="this.style.borderColor='transparent'">
+            <div style="font-size:52px;margin-bottom:18px;">📹</div>
+            <div style="font-size:20px;font-weight:700;margin-bottom:10px;color:var(--text);">Live Recognition</div>
+            <div style="color:var(--text3);font-size:14px;line-height:1.6;">Real-time gesture detection using your webcam and trained models — movement and audio fused.</div>
+            <button class="btn btn-gradient" style="margin-top:24px;width:100%;justify-content:center;">▶ Start Live</button>
           </div>
 
-          <!-- Movement + Audio side by side -->
-          <div class="grid-2">
-            <div class="card" style="padding:18px;">
-              <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">👁 Movement</div>
-              <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-mv-class">—</div>
-              <div class="text-sm text-muted mt-1" id="inf-mv-conf">0%</div>
-            </div>
-            <div class="card" style="padding:18px;">
-              <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">🎙 Audio</div>
-              <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-au-class">—</div>
-              <div class="text-sm text-muted mt-1" id="inf-au-conf">0%</div>
-            </div>
-          </div>
-
-          <div class="card" style="padding:20px;">
-            <div class="card-title mb-4">Recent Predictions</div>
-            <div id="inf-recent-list">
-              <div class="text-muted text-sm text-center" style="padding:16px;">No predictions yet</div>
-            </div>
+          <div class="card" style="padding:40px;cursor:pointer;text-align:center;border:2px solid transparent;transition:border-color 0.2s;"
+               onclick="showRecVideo()"
+               onmouseover="this.style.borderColor='#1C46C0'"
+               onmouseout="this.style.borderColor='transparent'">
+            <div style="font-size:52px;margin-bottom:18px;">🎬</div>
+            <div style="font-size:20px;font-weight:700;margin-bottom:10px;color:var(--text);">Video Analysis</div>
+            <div style="color:var(--text3);font-size:14px;line-height:1.6;">Upload a recorded video and get gesture predictions across the whole clip with a timeline view.</div>
+            <button class="btn btn-gradient" style="margin-top:24px;width:100%;justify-content:center;">📂 Upload Video</button>
           </div>
 
         </div>
-
       </div>
 
-      <!-- ── Video File Analysis ─────────────────────────────────────── -->
-      <div class="mt-8">
-        <div class="section-title" style="font-size:18px;">🎬 Video File Analysis</div>
-        <div class="section-sub">Upload a recorded video and get gesture predictions across the whole clip.</div>
+      <!-- ── Sub-page: Live Recognition ───────────────────────────────── -->
+      <div id="rec-sub-live" class="hidden">
+        <div class="mb-6" style="display:flex;align-items:center;gap:16px;">
+          <button class="btn btn-ghost" onclick="backToRecHome()" style="padding:8px 16px;font-size:14px;flex-shrink:0;">← Back</button>
+          <div>
+            <div class="section-title">📹 Live Recognition</div>
+            <div class="section-sub">Real-time gesture detection — movement + audio fused.</div>
+          </div>
+        </div>
+
+        <div class="grid-6-4">
+
+          <!-- Camera -->
+          <div>
+            <div class="webcam-container" id="inf-webcam-wrap">
+              <video id="inf-camera-video" autoplay playsinline muted class="webcam-img"></video>
+              <canvas id="inf-camera-canvas" class="webcam-img" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none"></canvas>
+              <div class="webcam-overlay">
+                <div id="inf-live-badge" class="live-badge hidden">
+                  <div class="live-dot"></div>LIVE
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-3 mt-4">
+              <button id="inf-start-btn" class="btn btn-emerald" onclick="startInference()">▶ Start Recognition</button>
+              <button id="inf-stop-btn" class="btn btn-danger hidden" onclick="stopInference()">⏹ Stop</button>
+            </div>
+          </div>
+
+          <!-- Prediction panel -->
+          <div style="display:flex;flex-direction:column;gap:16px;">
+
+            <!-- Fused result -->
+            <div class="card" id="inf-fused-card" style="padding:28px;border:2px solid #1C46C0;">
+              <div class="text-sm text-muted mb-3" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Fused Prediction</div>
+              <!-- Idle state -->
+              <div id="inf-idle-state" style="display:none;text-align:center;padding:8px 0 4px;">
+                <div style="font-size:36px;margin-bottom:6px;">🤚</div>
+                <div style="font-size:16px;font-weight:700;color:var(--text3);">No gesture detected</div>
+                <div style="font-size:12px;color:var(--text3);margin-top:4px;">Waiting for a recognisable gesture…</div>
+              </div>
+              <!-- Active prediction -->
+              <div id="inf-active-state">
+                <div class="prediction-big" id="inf-class">—</div>
+                <div style="margin-top:16px;">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                    <span class="text-sm text-secondary">Confidence</span>
+                    <span class="text-sm font-bold" id="inf-conf-text" style="color:#1C46C0;">0%</span>
+                  </div>
+                  <div class="conf-bar-track"><div class="conf-bar-fill" id="inf-conf-bar" style="width:0%;"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Movement + Face + Audio -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div class="card" style="padding:18px;">
+                <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">👁 Movement</div>
+                <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-mv-class">—</div>
+                <div class="text-sm text-muted mt-1" id="inf-mv-conf">0%</div>
+              </div>
+              <div class="card" style="padding:18px;">
+                <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">😶 Face</div>
+                <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-face-class">—</div>
+                <div class="text-sm text-muted mt-1" id="inf-face-conf">0%</div>
+              </div>
+              <div class="card" style="padding:18px;">
+                <div class="text-sm font-bold mb-2" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">🎙 Audio</div>
+                <div style="font-size:22px;font-weight:800;color:var(--text);" id="inf-au-class">—</div>
+                <div class="text-sm text-muted mt-1" id="inf-au-conf">0%</div>
+              </div>
+            </div>
+
+            <!-- Fusion decision panel -->
+            <div class="card" style="padding:18px;" id="inf-rule-card">
+              <div class="text-sm font-bold mb-3" style="color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;font-size:11px;">⚖ Fusion Decision</div>
+              <div style="display:flex;align-items:flex-start;gap:12px;">
+                <div id="inf-rule-icon" style="font-size:24px;flex-shrink:0;margin-top:2px;">—</div>
+                <div style="flex:1;min-width:0;">
+                  <div id="inf-rule-label" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Waiting…</div>
+                  <div id="inf-rule-detail" style="font-size:12px;color:var(--text3);line-height:1.5;">Start recognition to see fusion reasoning</div>
+                </div>
+              </div>
+              <!-- Threshold reference -->
+              <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                <span style="font-size:11px;background:#EEF2FF;color:#1C46C0;padding:3px 8px;border-radius:12px;font-weight:600;">Audio override ≥ 90%</span>
+                <span style="font-size:11px;background:#F0FDF4;color:#166534;padding:3px 8px;border-radius:12px;font-weight:600;">Movement primary ≥ 85%</span>
+                <span style="font-size:11px;background:#FFF7ED;color:#92400E;padding:3px 8px;border-radius:12px;font-weight:600;">Low confidence → discounted ×0.9</span>
+              </div>
+            </div>
+
+            <div class="card" style="padding:20px;">
+              <div class="card-title mb-4">Recent Predictions</div>
+              <div id="inf-recent-list">
+                <div class="text-muted text-sm text-center" style="padding:16px;">No predictions yet</div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Sub-page: Video Analysis ──────────────────────────────────── -->
+      <div id="rec-sub-video" class="hidden">
+        <div class="mb-6" style="display:flex;align-items:center;gap:16px;">
+          <button class="btn btn-ghost" onclick="backToRecHome()" style="padding:8px 16px;font-size:14px;flex-shrink:0;">← Back</button>
+          <div>
+            <div class="section-title">🎬 Video Analysis</div>
+            <div class="section-sub">Upload a recorded video and get gesture predictions across the whole clip.</div>
+          </div>
+        </div>
 
         <div class="grid-2">
           <div class="card" style="padding:24px;">
@@ -1215,14 +1569,19 @@ const state = {
   trainPollInterval: null,
   infPollInterval: null,
   arecPollInterval: null,
+  jrecPollInterval: null,
+  jtrainPollInterval: null,
   atrainPollInterval: null,
   recRecording: false,
   infRunning: false,
   recentPredictions: [],
+  predBuffer: [],       // last 5 fused predictions for majority-vote stability
   chartAcc: null,
   chartLoss: null,
   chartAudioAcc: null,
   chartAudioLoss: null,
+  chartFaceAcc: null,
+  chartFaceLoss: null,
   stats: { total_rows: 0, classes: {}, model_trained: false },
   audioStats: { total_rows: 0, classes: {}, model_trained: false },
   fusionMode: false   // true when both movement + audio inference running
@@ -1233,10 +1592,12 @@ const state = {
 // ══════════════════════════════════════════════════════════════════════════════
 const PAGE_META = {
   dashboard:    { title: 'Dashboard', sub: 'Overview of your gesture recognition system' },
+  'joint-record': { title: '⚡ Simultaneous Recording', sub: 'Capture gesture and audio together in one session' },
   record:       { title: '⏺ Record Gesture', sub: 'Capture gesture data with your webcam' },
   train:        { title: '⚙ Train Model', sub: 'Train an LSTM neural network on your data' },
   'audio-record': { title: '🎙 Audio Record', sub: 'Record audio gesture data with your microphone' },
   'audio-train':  { title: '🔊 Audio Train', sub: 'Train an LSTM model on your audio gesture data' },
+  'face-train':   { title: '😶 Face Train', sub: 'Train a dedicated LSTM on face landmark data' },
   recognize:    { title: '◉ Live Recognition', sub: 'Real-time fusion of movement + audio recognition' }
 };
 
@@ -1265,18 +1626,27 @@ function loadPage(name) {
 
   state.currentPage = name;
 
-  // Camera start/stop based on page
-  if (name === 'record' || name === 'recognize') {
+  // Camera: start on record pages; stop otherwise
+  if (name === 'record' || name === 'joint-record') {
     startCamera();
-  } else {
+  } else if (name !== 'recognize') {
+    // Stop inference if leaving recognize while live is active
+    if (state.infRunning) stopInference();
     stopCamera();
   }
+  // recognize: camera controlled by sub-page (showRecLive / backToRecHome)
 
   // Page-specific init
+  if (name === 'joint-record') initJointRecordPage();
   if (name === 'record') initRecordPage();
   if (name === 'train') initTrainPage();
   if (name === 'audio-record') initAudioRecordPage();
   if (name === 'audio-train') initAudioTrainPage();
+  if (name === 'face-train') initFaceTrainPage();
+  if (name === 'recognize') {
+    // Always land on chooser; stop camera/inference in case coming from elsewhere
+    showRecChooser();
+  }
 
   // Close mobile sidebar
   document.getElementById('sidebar').classList.remove('open');
@@ -1284,6 +1654,118 @@ function loadPage(name) {
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RECOGNIZE sub-page navigation
+// ══════════════════════════════════════════════════════════════════════════════
+function showRecChooser() {
+  document.getElementById('rec-sub-home').classList.remove('hidden');
+  document.getElementById('rec-sub-live').classList.add('hidden');
+  document.getElementById('rec-sub-video').classList.add('hidden');
+}
+
+function showRecLive() {
+  document.getElementById('rec-sub-home').classList.add('hidden');
+  document.getElementById('rec-sub-live').classList.remove('hidden');
+  document.getElementById('rec-sub-video').classList.add('hidden');
+  startCamera();
+}
+
+function showRecVideo() {
+  document.getElementById('rec-sub-home').classList.add('hidden');
+  document.getElementById('rec-sub-live').classList.add('hidden');
+  document.getElementById('rec-sub-video').classList.remove('hidden');
+  stopCamera();
+}
+
+function backToRecHome() {
+  if (state.infRunning) stopInference();
+  stopCamera();
+  showRecChooser();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RECORD tab switcher
+// ══════════════════════════════════════════════════════════════════════════════
+function switchRecTab(tab) {
+  const isLive = tab === 'live';
+  document.getElementById('rec-tab-live').classList.toggle('hidden', !isLive);
+  document.getElementById('rec-tab-video').classList.toggle('hidden', isLive);
+
+  const btnLive  = document.getElementById('rec-tab-btn-live');
+  const btnVideo = document.getElementById('rec-tab-btn-video');
+  btnLive.style.color        = isLive ? '#1C46C0' : 'var(--text3)';
+  btnLive.style.borderBottom = isLive ? '3px solid #1C46C0' : '3px solid transparent';
+  btnVideo.style.color        = isLive ? 'var(--text3)' : '#1C46C0';
+  btnVideo.style.borderBottom = isLive ? '3px solid transparent' : '3px solid #1C46C0';
+
+  if (isLive) startCamera();
+  else stopCamera();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RECORD: train from video file
+// ══════════════════════════════════════════════════════════════════════════════
+async function trainFromVideo() {
+  const name  = document.getElementById('rec-vid-gesture-name').value.trim();
+  const input = document.getElementById('rec-vid-file-input');
+
+  if (!name) { showToast('Enter a gesture name first', 'error'); return; }
+  if (!input.files || !input.files[0]) { showToast('Select a video file first', 'error'); return; }
+
+  const file  = input.files[0];
+  const maxMB = 500;
+  if (file.size > maxMB * 1024 * 1024) { showToast(`File too large (max ${maxMB} MB)`, 'error'); return; }
+
+  const btn = document.getElementById('rec-vid-btn');
+  btn.disabled = true;
+  document.getElementById('rec-vid-progress-wrap').classList.remove('hidden');
+  document.getElementById('rec-vid-status-msg').textContent = 'Processing video — this may take a moment…';
+  document.getElementById('rec-vid-progress-bar').style.width = '100%';
+  document.getElementById('rec-vid-result').innerHTML =
+    '<div class="text-muted text-sm text-center" style="padding:24px;">Extracting landmarks and keyframes…</div>';
+
+  try {
+    const form = new FormData();
+    form.append('file', file);
+
+    let url = `/api/record/video-file?gesture_name=${encodeURIComponent(name)}`;
+    if (activeUser) url += `&username=${encodeURIComponent(activeUser)}`;
+
+    const res = await fetch(url, { method: 'POST', body: form });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Server error');
+    }
+
+    const data = await res.json();
+    document.getElementById('rec-vid-result').innerHTML = `
+      <div style="padding:8px 0;">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:6px;">Gesture</div>
+        <div style="font-size:22px;font-weight:800;color:#1C46C0;margin-bottom:16px;">${esc(data.gesture)}</div>
+        <div class="grid-2" style="gap:12px;margin-bottom:16px;">
+          <div style="background:#F4F6FB;border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;">${data.sequences}</div>
+            <div style="font-size:12px;color:var(--text3);">keyframe sequences</div>
+          </div>
+          <div style="background:#F4F6FB;border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;">${data.rows_saved}</div>
+            <div style="font-size:12px;color:var(--text3);">rows saved</div>
+          </div>
+        </div>
+        <div style="color:var(--emerald);font-weight:600;font-size:14px;">✓ ${esc(data.message)}</div>
+      </div>`;
+    showToast(`Saved ${data.rows_saved} training rows for "${data.gesture}"`, 'success');
+    refreshStats();
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    document.getElementById('rec-vid-result').innerHTML =
+      `<div style="color:var(--red);padding:16px;font-size:14px;">✕ ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    document.getElementById('rec-vid-progress-wrap').classList.add('hidden');
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1718,11 +2200,13 @@ async function stopInference() {
     releaseAudioWs();
   } catch(e) {}
   state.infRunning = false;
+  state.predBuffer = [];
   document.getElementById('inf-start-btn').classList.remove('hidden');
   document.getElementById('inf-stop-btn').classList.add('hidden');
   document.getElementById('inf-live-badge').classList.add('hidden');
   document.getElementById('inf-class').textContent = '—';
   document.getElementById('inf-mv-class').textContent = '—';
+  document.getElementById('inf-face-class').textContent = '—';
   document.getElementById('inf-au-class').textContent = '—';
   document.getElementById('inf-conf-bar').style.width = '0%';
   document.getElementById('inf-conf-text').textContent = '0%';
@@ -1865,6 +2349,225 @@ function setArecStatus(status, progress, message) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  JOINT RECORD PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function initJointRecordPage() {
+  refreshStats();
+  document.getElementById('jrec-session-prompt').style.display = 'none';
+  document.getElementById('jtrain-section').style.display = 'none';
+}
+
+async function startJointRecording() {
+  const name = document.getElementById('jrec-gesture-name').value.trim();
+  if (!name) { showToast('Enter a gesture name first', 'error'); return; }
+  const duration = parseInt(document.getElementById('jrec-duration').value);
+
+  try {
+    await ensureAudioWs();
+
+    const res = await fetch('/api/joint/record/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gesture_name: name, duration, username: activeUser || '' })
+    });
+    if (!res.ok) { releaseAudioWs(); throw new Error((await res.json()).detail || 'Error'); }
+
+    document.getElementById('jrec-start-btn').disabled = true;
+    document.getElementById('jrec-stop-btn').classList.remove('hidden');
+    document.getElementById('jrec-live-badge').classList.remove('hidden');
+    setJrecStatus('movement', 'recording', 0);
+    setJrecStatus('audio', 'recording', 0);
+    showToast(`Recording "${name}" — gesture + audio for ${duration}s`, 'info');
+    state.jrecPollInterval = setInterval(pollJointRecording, 500);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function stopJointRecording() {
+  await fetch('/api/joint/record/stop', { method: 'POST' });
+  clearInterval(state.jrecPollInterval);
+  releaseAudioWs();
+  document.getElementById('jrec-live-badge').classList.add('hidden');
+  setTimeout(pollJointRecording, 600);
+}
+
+async function pollJointRecording() {
+  try {
+    const res = await fetch('/api/joint/record/status');
+    const data = await res.json();
+    setJrecStatus('movement', data.movement.status, data.movement.progress);
+    setJrecStatus('audio', data.audio.status, data.audio.progress);
+
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(state.jrecPollInterval);
+      document.getElementById('jrec-start-btn').disabled = false;
+      document.getElementById('jrec-stop-btn').classList.add('hidden');
+      document.getElementById('jrec-live-badge').classList.add('hidden');
+      if (data.status === 'done') {
+        showToast('Recording saved!', 'success');
+        refreshStats();
+        const name = document.getElementById('jrec-gesture-name').value.trim();
+        if (name) checkSessionCount(name);
+      } else {
+        showToast('Recording error', 'error');
+      }
+    }
+  } catch(e) {}
+}
+
+function setJrecStatus(stream, status, progress) {
+  const prefix = stream === 'movement' ? 'jrec-mv' : 'jrec-au';
+  const pct = Math.round(progress);
+  document.getElementById(prefix + '-bar').style.width = pct + '%';
+  document.getElementById(prefix + '-pct').textContent = pct + '%';
+  const badges = {
+    idle:      '<span class="badge badge-muted">Idle</span>',
+    recording: '<span class="badge badge-red"><span class="live-dot" style="display:inline-block;"></span> Recording</span>',
+    done:      '<span class="badge badge-green">✓ Saved</span>',
+    error:     '<span class="badge badge-red">✕ Error</span>'
+  };
+  document.getElementById(prefix + '-status').innerHTML = badges[status] || badges.idle;
+}
+
+// ── Recording mode toggle ─────────────────────────────────────────────────────
+function setRecordingMode(mode) {
+  const isSim = mode === 'simultaneous';
+  document.getElementById('nav-group-sim').style.display = isSim ? '' : 'none';
+  document.getElementById('nav-group-sep').style.display = isSim ? 'none' : '';
+  document.getElementById('nav-mode-sim').style.background = isSim ? '#1C46C0' : 'transparent';
+  document.getElementById('nav-mode-sim').style.color      = isSim ? '#fff' : 'rgba(255,255,255,0.6)';
+  document.getElementById('nav-mode-sep').style.background = isSim ? 'transparent' : '#1C46C0';
+  document.getElementById('nav-mode-sep').style.color      = isSim ? 'rgba(255,255,255,0.6)' : '#fff';
+  if (isSim) loadPage('joint-record');
+}
+
+// ── Session count check ───────────────────────────────────────────────────────
+async function checkSessionCount(gestureName) {
+  try {
+    const res  = await fetch(`/api/data/stats?username=${encodeURIComponent(activeUser || '')}`);
+    const data = await res.json();
+    const count = (data.classes && data.classes[gestureName]) || 0;
+
+    const prompt = document.getElementById('jrec-session-prompt');
+    const msg    = document.getElementById('jrec-prompt-msg');
+    const warn   = document.getElementById('jrec-prompt-warn');
+    const btn    = document.getElementById('jrec-continue-btn');
+
+    prompt.style.display = 'block';
+    msg.textContent = `Session ${count} recorded for "${gestureName}".`;
+
+    if (count < 2) {
+      warn.style.display = 'block';
+      btn.style.display  = 'none';
+    } else {
+      warn.style.display = 'none';
+      btn.style.display  = 'block';
+    }
+  } catch(e) {}
+}
+
+function recordAgain() {
+  // keep gesture name, just re-enable the start button
+  document.getElementById('jrec-session-prompt').style.display = 'none';
+  document.getElementById('jrec-start-btn').disabled = false;
+  setJrecStatus('movement', 'idle', 0);
+  setJrecStatus('audio', 'idle', 0);
+}
+
+function revealTrainSection() {
+  document.getElementById('jtrain-section').style.display = 'block';
+  document.getElementById('jtrain-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Joint Training ────────────────────────────────────────────────────────────
+let _jtrainPhase = null;   // 'movement' | 'audio' | null
+
+async function startJointTraining() {
+  const epochs = parseInt(document.getElementById('jtrain-epochs').value);
+  document.getElementById('jtrain-btn').disabled = true;
+  setJtrainBadge('movement', 'idle'); setJtrainBadge('audio', 'idle');
+  document.getElementById('jtrain-mv-msg').textContent = '';
+  document.getElementById('jtrain-au-msg').textContent = '';
+
+  try {
+    const res = await fetch('/api/train/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ epochs, username: activeUser || '' })
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Error starting movement training');
+    _jtrainPhase = 'movement';
+    setJtrainBadge('movement', 'running');
+    showToast('Training movement model...', 'info');
+    state.jtrainPollInterval = setInterval(pollJointTraining, 1000);
+  } catch(e) {
+    document.getElementById('jtrain-btn').disabled = false;
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function pollJointTraining() {
+  try {
+    if (_jtrainPhase === 'movement') {
+      const res = await fetch('/api/train/status');
+      const data = await res.json();
+      setJtrainBadge('movement', data.status === 'running' ? 'running' : data.status);
+      document.getElementById('jtrain-mv-bar').style.width = Math.round(data.progress) + '%';
+      if (data.message) document.getElementById('jtrain-mv-msg').textContent = data.message;
+
+      if (data.status === 'done') {
+        showToast('Movement model trained! Starting audio...', 'success');
+        _jtrainPhase = 'audio';
+        setJtrainBadge('audio', 'running');
+        const epochs = parseInt(document.getElementById('jtrain-epochs').value);
+        const res2 = await fetch('/api/audio/train/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epochs, username: activeUser || '' })
+        });
+        if (!res2.ok) throw new Error((await res2.json()).detail || 'Error starting audio training');
+      } else if (data.status === 'error') {
+        _jtrainFinish('error', data.message || 'Movement training failed');
+      }
+
+    } else if (_jtrainPhase === 'audio') {
+      const res = await fetch('/api/audio/train/status');
+      const data = await res.json();
+      setJtrainBadge('audio', data.status === 'running' ? 'running' : data.status);
+      document.getElementById('jtrain-au-bar').style.width = Math.round(data.progress) + '%';
+      if (data.message) document.getElementById('jtrain-au-msg').textContent = data.message;
+
+      if (data.status === 'done') {
+        _jtrainFinish('done', 'Both models trained successfully!');
+      } else if (data.status === 'error') {
+        _jtrainFinish('error', data.message || 'Audio training failed');
+      }
+    }
+  } catch(e) {
+    _jtrainFinish('error', e.message);
+  }
+}
+
+function _jtrainFinish(outcome, msg) {
+  clearInterval(state.jtrainPollInterval);
+  _jtrainPhase = null;
+  document.getElementById('jtrain-btn').disabled = false;
+  showToast(msg, outcome === 'done' ? 'success' : 'error');
+}
+
+function setJtrainBadge(stream, status) {
+  const id = stream === 'movement' ? 'jtrain-mv-badge' : 'jtrain-au-badge';
+  const badges = {
+    idle:    '<span class="badge badge-muted">Idle</span>',
+    running: '<span class="badge badge-blue">Training...</span>',
+    done:    '<span class="badge badge-green">✓ Done</span>',
+    error:   '<span class="badge badge-red">✕ Error</span>'
+  };
+  document.getElementById(id).innerHTML = badges[status] || badges.idle;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  AUDIO TRAIN PAGE
 // ══════════════════════════════════════════════════════════════════════════════
 function initAudioTrainPage() {
@@ -1959,36 +2662,157 @@ function updateAudioTrainingUI(data) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  FACE TRAIN PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function initFaceTrainPage() {}
+
+async function startFaceTraining() {
+  const epochs = parseInt(document.getElementById('ftrain-epochs').value);
+  try {
+    const res = await fetch('/api/face/train/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ epochs, username: activeUser || '' })
+    });
+    if (!res.ok) { showToast((await res.json()).detail || 'Cannot start face training', 'error'); return; }
+    document.getElementById('ftrain-btn').disabled = true;
+    document.getElementById('ftrain-progress-section').style.display = 'block';
+    document.getElementById('ftrain-result-card').style.display = 'none';
+    document.getElementById('ftrain-log').innerHTML = '';
+    initFaceCharts();
+    showToast(`Face training started (${epochs} epochs)`, 'info');
+    state.ftrainPollInterval = setInterval(pollFaceTraining, 1000);
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function pollFaceTraining() {
+  try {
+    const res = await fetch('/api/face/train/status');
+    const data = await res.json();
+    updateFaceTrainingUI(data);
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(state.ftrainPollInterval);
+      document.getElementById('ftrain-btn').disabled = false;
+      if (data.status === 'done') {
+        showToast(data.message || 'Face training complete!', 'success');
+        document.getElementById('ftrain-result-card').style.display = 'block';
+        document.getElementById('ftrain-final-acc').textContent = data.final_accuracy !== null ? (data.final_accuracy*100).toFixed(1)+'%' : '—';
+        document.getElementById('ftrain-final-msg').textContent = data.message;
+      } else {
+        showToast(data.message || 'Face training failed', 'error');
+      }
+    }
+  } catch(e) {}
+}
+
+function updateFaceTrainingUI(data) {
+  const pct = Math.round(data.progress);
+  document.getElementById('ftrain-progress-bar').style.width = pct + '%';
+  document.getElementById('ftrain-progress-pct').textContent = pct + '%';
+  const epochs = parseInt(document.getElementById('ftrain-epochs').value);
+  document.getElementById('ftrain-epoch-progress').textContent = `Epoch ${Math.round(pct/100*epochs)} / ${epochs}`;
+  const badges = { running:'<span class="badge badge-blue">⟳ Running</span>', done:'<span class="badge badge-green">✓ Done</span>', error:'<span class="badge badge-red">✕ Error</span>' };
+  document.getElementById('ftrain-status-badge').innerHTML = badges[data.status] || '';
+  const logEl = document.getElementById('ftrain-log');
+  if (data.logs && data.logs.length > 0) {
+    logEl.innerHTML = data.logs.map(l => {
+      const cls = l.startsWith('Error') ? 'error' : l.startsWith('Training')||l.startsWith('Loading') ? 'info' : '';
+      return `<span class="log-line ${cls}">&gt; ${esc(l)}</span>`;
+    }).join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (data.history) {
+    const h = data.history;
+    const labels = h.accuracy.map((_,i) => i+1);
+    if (state.chartFaceAcc)  { state.chartFaceAcc.data.labels=labels;  state.chartFaceAcc.data.datasets[0].data=h.accuracy;  state.chartFaceAcc.data.datasets[1].data=h.val_accuracy;  state.chartFaceAcc.update('none'); }
+    if (state.chartFaceLoss) { state.chartFaceLoss.data.labels=labels; state.chartFaceLoss.data.datasets[0].data=h.loss;      state.chartFaceLoss.data.datasets[1].data=h.val_loss;      state.chartFaceLoss.update('none'); }
+  }
+}
+
+function initFaceCharts() {
+  if (state.chartFaceAcc)  { state.chartFaceAcc.destroy();  state.chartFaceAcc  = null; }
+  if (state.chartFaceLoss) { state.chartFaceLoss.destroy(); state.chartFaceLoss = null; }
+  const mkOpts = (l1,l2,c1,c2,minY) => ({
+    type:'line', data:{ labels:[], datasets:[
+      {label:l1,data:[],borderColor:c1,backgroundColor:c1+'22',tension:0.3,pointRadius:2,fill:true},
+      {label:l2,data:[],borderColor:c2,backgroundColor:c2+'22',tension:0.3,pointRadius:2,fill:true}
+    ]},
+    options:{ animation:false, plugins:{legend:{labels:{color:'#475569',font:{size:11}}}},
+      scales:{ x:{ticks:{color:'#475569',font:{size:11}},grid:{color:'rgba(0,0,0,0.04)'}},
+               y:{ticks:{color:'#475569',font:{size:11}},grid:{color:'rgba(0,0,0,0.04)'},min:minY} } }
+  });
+  state.chartFaceAcc  = new Chart(document.getElementById('chart-face-accuracy'), mkOpts('Train Acc','Val Acc','#6366f1','#22d3ee',0));
+  state.chartFaceLoss = new Chart(document.getElementById('chart-face-loss'),     mkOpts('Train Loss','Val Loss','#f59e0b','#ef4444',0));
+}
+
+
 async function pollPrediction() {
   try {
     const res = await fetch('/api/fusion/prediction');
     const data = await res.json();
 
-    const mv = data.movement || { class: '—', confidence: 0 };
-    const au = data.audio    || { class: '—', confidence: 0 };
-    const fu = data.fused    || { class: '—', confidence: 0 };
+    const mv   = data.movement || { class: '—', confidence: 0 };
+    const face = data.face     || { class: '—', confidence: 0 };
+    const au   = data.audio    || { class: '—', confidence: 0 };
+    const fu   = data.fused    || { class: '—', confidence: 0 };
 
-    // Fused
-    const fuCls = fu.class || '—';
-    const fuPct = Math.round((fu.confidence || 0) * 100);
-    document.getElementById('inf-class').textContent = fuCls;
-    document.getElementById('inf-conf-bar').style.width = fuPct + '%';
-    document.getElementById('inf-conf-text').textContent = fuPct + '%';
+    // ── Majority-vote stability buffer ────────────────────────────────────
+    // Collect last 5 fused results; only display a class when it wins ≥ 3/5.
+    // This gives a ~1.5 s confirmation window and kills one-frame flickers.
+    state.predBuffer.push(fu);
+    if (state.predBuffer.length > 5) state.predBuffer.shift();
 
-    // Movement
+    const votes = {}, confSum = {};
+    for (const p of state.predBuffer) {
+      if (p.class && p.class !== '—') {
+        votes[p.class] = (votes[p.class] || 0) + 1;
+        confSum[p.class] = (confSum[p.class] || 0) + p.confidence;
+      }
+    }
+    let stableCls = '—', stableConf = 0, bestVote = 0;
+    for (const [cls, cnt] of Object.entries(votes)) {
+      if (cnt > bestVote) { bestVote = cnt; stableCls = cls; stableConf = confSum[cls] / cnt; }
+    }
+    if (bestVote < 3) { stableCls = '—'; stableConf = 0; }
+    // ──────────────────────────────────────────────────────────────────────
+
+    // Fused (stable) — show idle state when no gesture
+    const fuPct = Math.round(stableConf * 100);
+    const isIdle = stableCls === '—';
+    document.getElementById('inf-idle-state').style.display  = isIdle ? '' : 'none';
+    document.getElementById('inf-active-state').style.display = isIdle ? 'none' : '';
+    document.getElementById('inf-fused-card').style.borderColor = isIdle ? 'rgba(100,100,120,0.3)' : '#1C46C0';
+    if (!isIdle) {
+      document.getElementById('inf-class').textContent = stableCls;
+      document.getElementById('inf-conf-bar').style.width = fuPct + '%';
+      document.getElementById('inf-conf-text').textContent = fuPct + '%';
+    }
+
+    // Movement / Face / Audio (raw — show what each model sees)
     document.getElementById('inf-mv-class').textContent = mv.class || '—';
     document.getElementById('inf-mv-conf').textContent = Math.round((mv.confidence || 0) * 100) + '%';
-
-    // Audio
+    document.getElementById('inf-face-class').textContent = face.class || '—';
+    document.getElementById('inf-face-conf').textContent = Math.round((face.confidence || 0) * 100) + '%';
     document.getElementById('inf-au-class').textContent = au.class || '—';
     document.getElementById('inf-au-conf').textContent = Math.round((au.confidence || 0) * 100) + '%';
 
-    // Recent predictions
-    if (fuCls !== '—' && fu.confidence > 0.3) {
+    // ── Fusion decision panel ─────────────────────────────────────────────
+    const rule = fu.rule || 'no_signal';
+    const ruleIcons = { audio_override: '🎙', movement_primary: '👁', low_confidence: '⚠', no_signal: '🤚' };
+    const ruleColors = { audio_override: '#1C46C0', movement_primary: '#166534', low_confidence: '#92400E', no_signal: '#6B7280' };
+    document.getElementById('inf-rule-icon').textContent  = ruleIcons[rule] || '—';
+    document.getElementById('inf-rule-label').textContent = fu.rule_label || 'Waiting…';
+    document.getElementById('inf-rule-label').style.color = ruleColors[rule] || 'var(--text)';
+    document.getElementById('inf-rule-detail').textContent = fu.detail || '';
+    // ──────────────────────────────────────────────────────────────────────
+
+    // Recent predictions (only log stable results)
+    if (stableCls !== '—' && stableConf > 0.3) {
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const last = state.recentPredictions[0];
-      if (!last || last.cls !== fuCls || (Date.now() - last.ts) > 1500) {
-        state.recentPredictions.unshift({ cls: fuCls, conf: fuPct, time: now, ts: Date.now() });
+      if (!last || last.cls !== stableCls || (Date.now() - last.ts) > 2000) {
+        state.recentPredictions.unshift({ cls: stableCls, conf: fuPct, time: now, ts: Date.now() });
         state.recentPredictions = state.recentPredictions.slice(0, 5);
         renderRecentPredictions();
       }
@@ -2177,8 +3001,8 @@ async function startCamera() {
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
     });
 
-    // Wire stream to BOTH video elements — whichever is visible will show it
-    ['rec-camera-video', 'inf-camera-video'].forEach(id => {
+    // Wire stream to ALL video elements — whichever is visible will show it
+    ['rec-camera-video', 'inf-camera-video', 'jrec-camera-video'].forEach(id => {
       const v = document.getElementById(id);
       if (v) {
         v.srcObject = cameraStream;
@@ -2223,12 +3047,16 @@ function connectWebSocket() {
       const data = JSON.parse(
         typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data)
       );
-      const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas' : 'rec-camera-canvas';
+      const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas'
+                     : state.currentPage === 'joint-record' ? 'jrec-camera-canvas'
+                     : 'rec-camera-canvas';
       const canvas = document.getElementById(canvasId);
       if (canvas) {
         // Size canvas to match the video element once
         const vid = document.getElementById(
-          state.currentPage === 'recognize' ? 'inf-camera-video' : 'rec-camera-video'
+          state.currentPage === 'recognize' ? 'inf-camera-video'
+          : state.currentPage === 'joint-record' ? 'jrec-camera-video'
+          : 'rec-camera-video'
         );
         if (vid && (canvas.width !== vid.videoWidth || canvas.height !== vid.videoHeight)
             && vid.videoWidth > 0) {
@@ -2279,7 +3107,9 @@ function sendNextFrame(ts) {
   }
   _lastFrameTime = ts || performance.now();
 
-  const videoId = state.currentPage === 'recognize' ? 'inf-camera-video' : 'rec-camera-video';
+  const videoId = state.currentPage === 'recognize' ? 'inf-camera-video'
+                : state.currentPage === 'joint-record' ? 'jrec-camera-video'
+                : 'rec-camera-video';
   const video = document.getElementById(videoId);
   if (!video || video.readyState < 2) {
     setTimeout(() => requestAnimationFrame(sendNextFrame), 100);
@@ -2313,11 +3143,11 @@ function stopCamera() {
     cameraStream = null;
   }
   // Clear video srcObject and hide canvases
-  ['rec-camera-video', 'inf-camera-video'].forEach(id => {
+  ['rec-camera-video', 'inf-camera-video', 'jrec-camera-video'].forEach(id => {
     const v = document.getElementById(id);
     if (v) v.srcObject = null;
   });
-  ['rec-camera-canvas', 'inf-camera-canvas'].forEach(id => {
+  ['rec-camera-canvas', 'inf-camera-canvas', 'jrec-camera-canvas'].forEach(id => {
     const c = document.getElementById(id); if (c) c.style.display = 'none';
   });
   setCameraStatus(false, 'Camera offline');
