@@ -16,23 +16,30 @@ Then open http://localhost:8000 in the browser.
 ## Python environment
 - Location: `/Users/ma3289/Downloads/A3CP/gesture_env/`
 - Python 3.11 (required — TF mutex crash on 3.9)
-- Key versions: tensorflow-macos==2.13.0, mediapipe==0.10.9, numpy==1.24.3
-- These versions are tightly coupled — do not upgrade without checking compatibility
+- Key versions: tensorflow-macos==2.13.0, numpy==1.24.3
+- `mediapipe` Python package is only used for server-side video file analysis
+  (`_analyse_video`, `_extract_video_training_data`), not for live camera processing
 
 ## Architecture
 ```
-Browser (getUserMedia) → JPEG → WebSocket /ws/camera → MediaPipe (server)
-                                                      → JSON landmarks → Browser draws skeleton client-side
+Browser (getUserMedia) → MediaPipe Tasks JS (client-side) → draws skeleton instantly
+                                                           → WebSocket /ws/landmarks → Server (recording/inference only)
 
 Browser (AudioContext 22050Hz) → Float32 PCM → WebSocket /ws/audio
                                              → recording session OR audio recognizer
 ```
 
-### Why landmarks are drawn client-side
-The original approach sent annotated JPEGs back from the server — this caused
-significant display lag (full JPEG encode/decode round-trip per frame). Now the
-server returns JSON landmark positions and the browser draws the skeleton on a
-transparent canvas overlay, keeping the live video smooth at all times.
+### Why MediaPipe runs in the browser
+MediaPipe Tasks JS (`HolisticLandmarker`) runs entirely client-side via WebAssembly/WebGL.
+This eliminates the JPEG encode → WebSocket → server MediaPipe → JSON response round-trip
+that previously added ~150ms latency per frame. The server only receives landmark JSON
+when recording or inference is active (fire-and-forget via `/ws/landmarks`).
+
+### MediaPipe Tasks JS details
+- Loaded via CDN: `@mediapipe/tasks-vision@0.10.18`
+- Model: `holistic_landmarker.task` (float16, ~30-50MB, cached by browser)
+- Outputs 478 face landmarks (sliced to 468 for compatibility with feature vector)
+- `camera.py` is now a lightweight state container (no MediaPipe, no OpenCV)
 
 ### Why AudioContext is set to 22050 Hz
 The audio models are trained at SAMPLE_RATE=22050. Setting the browser
@@ -40,14 +47,13 @@ AudioContext to the same rate avoids any resampling.
 
 ### Why Python 3.11 and TF 2.13
 - Python 3.9 + TF 2.20 causes a mutex crash on macOS (libc++abi termination)
-- mediapipe 0.10.9 requires protobuf <4; TF 2.14+ requires protobuf >=4
-- TF 2.13 + mediapipe 0.10.9 + numpy 1.24.3 is the only tested compatible set
+- TF 2.13 + numpy 1.24.3 is the tested compatible set
 
 ## Module overview
 | File | Purpose |
 |------|---------|
 | `app/main.py` | FastAPI app, all HTTP + WebSocket endpoints |
-| `app/modules/camera.py` | MediaPipe Holistic, returns JSON landmarks |
+| `app/modules/camera.py` | Lightweight state container (landmark callback routing) |
 | `app/modules/features.py` | Landmark extraction → centroid-normalized 1657-dim vector + `compute_deltas()` |
 | `app/modules/recorder.py` | Captures continuous landmark sequences (no keyframe shredding) |
 | `app/modules/trainer.py` | LSTM training on movement gesture CSV |
@@ -140,15 +146,19 @@ Confidence-based heuristic (no meta-learner):
 - Each gesture class needs **at least 2 recordings** before training (stratified split)
 - Audio recording uses browser mic via WebSocket — macOS blocks direct mic access
   from Python processes, so the browser captures and streams audio to the backend
-- MediaPipe is not thread-safe — a single ThreadPoolExecutor(max_workers=1) is
-  used for all frame processing
 - Movement recordings are saved as continuous sequences (max 60 frames ≈ 4s)
 - Delta features (velocity) are computed on-the-fly during training and inference
+- MediaPipe Tasks JS model (~30-50MB) is downloaded on first camera start (cached after)
 
 ## Frontend notes
 - Single HTML file (`index.html`) — no build step, no npm, no framework
-- Camera ping-pong: browser sends JPEG at ≤15fps, server returns JSON landmarks
-- Audio: `AudioContext({ sampleRate: 22050 })` → `ScriptProcessorNode(4096)` → WebSocket
+- MediaPipe Tasks JS runs client-side (`HolisticLandmarker` via CDN)
 - Skeleton drawn with Canvas2D on a transparent overlay (video always live underneath)
+- Landmarks sent to server via WebSocket `/ws/landmarks` only during recording/inference
+- Audio: `AudioContext({ sampleRate: 22050 })` → `ScriptProcessorNode(4096)` → WebSocket
 - Fusion prediction: `/api/fusion/prediction` combines movement + audio + face with
   confidence-weighted heuristic (agreement bonus, discount when models disagree)
+
+**BREAKING CHANGE (2026-03-22, v3):** MediaPipe moved from server (Python Legacy) to
+browser (Tasks JS). `camera.py` gutted to state container. `/ws/camera` replaced with
+`/ws/landmarks`. No data format changes — existing recordings and models are compatible.

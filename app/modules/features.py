@@ -140,6 +140,83 @@ def _hand_angles(h):
         calculate_angle([h[18].x,h[18].y],[h[19].x,h[19].y],[h[20].x,h[20].y]),
     ]
 
+def _hand_angles_from_list(h):
+    """Calculate 14 joint angles from a hand landmark list of [x, y, vis] triples."""
+    return [
+        calculate_angle(h[1][:2], h[2][:2], h[3][:2]),
+        calculate_angle(h[2][:2], h[3][:2], h[4][:2]),
+        calculate_angle(h[0][:2], h[5][:2], h[6][:2]),
+        calculate_angle(h[5][:2], h[6][:2], h[7][:2]),
+        calculate_angle(h[6][:2], h[7][:2], h[8][:2]),
+        calculate_angle(h[0][:2], h[9][:2], h[10][:2]),
+        calculate_angle(h[9][:2], h[10][:2], h[11][:2]),
+        calculate_angle(h[10][:2], h[11][:2], h[12][:2]),
+        calculate_angle(h[0][:2], h[13][:2], h[14][:2]),
+        calculate_angle(h[13][:2], h[14][:2], h[15][:2]),
+        calculate_angle(h[14][:2], h[15][:2], h[16][:2]),
+        calculate_angle(h[0][:2], h[17][:2], h[18][:2]),
+        calculate_angle(h[17][:2], h[18][:2], h[19][:2]),
+        calculate_angle(h[18][:2], h[19][:2], h[20][:2]),
+    ]
+
+
+def extract_landmarks_from_json(data: dict):
+    """Extract feature vector from browser-side landmark JSON.
+
+    data format: {
+        "pose": [[x, y, visibility], ...] or null  (33 landmarks)
+        "left_hand": [[x, y, visibility], ...] or null  (21 landmarks)
+        "right_hand": [[x, y, visibility], ...] or null  (21 landmarks)
+        "face": [[x, y, visibility], ...] or null  (468 landmarks)
+    }
+
+    Returns np.array of shape (1657,) or None.
+    """
+    landmarks = []
+
+    # Pose (33 * 3 = 99) — cols 0–98
+    pose = data.get("pose")
+    if pose and len(pose) >= NUM_POSE:
+        for lm in pose[:NUM_POSE]:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+    else:
+        landmarks.extend([0.0] * NUM_POSE * 3)
+
+    # Left hand (21 * 3 = 63) + angles (14) — cols 99–175
+    left = data.get("left_hand")
+    if left and len(left) >= NUM_HAND:
+        hand = left[:NUM_HAND]
+        for lm in hand:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+        landmarks.extend(_hand_angles_from_list(hand))
+    else:
+        landmarks.extend([0.0] * (NUM_HAND * 3 + NUM_ANGLES))
+
+    # Right hand (21 * 3 = 63) + angles (14) — cols 176–252
+    right = data.get("right_hand")
+    if right and len(right) >= NUM_HAND:
+        hand = right[:NUM_HAND]
+        for lm in hand:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+        landmarks.extend(_hand_angles_from_list(hand))
+    else:
+        landmarks.extend([0.0] * (NUM_HAND * 3 + NUM_ANGLES))
+
+    # Face (468 * 3 = 1404) — cols 253–1656
+    face = data.get("face")
+    if face and len(face) >= NUM_FACE:
+        for lm in face[:NUM_FACE]:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+    else:
+        landmarks.extend([0.0] * NUM_FACE * 3)
+
+    arr = np.array(landmarks, dtype=np.float64)
+    if len(arr) != FEATURE_SIZE:
+        return None
+    arr = _centroid_normalize(arr)
+    return arr
+
+
 def extract_landmarks(results):
     """Extract feature vector from MediaPipe holistic results. Returns np.array of shape (1657,) or None."""
     landmarks = []

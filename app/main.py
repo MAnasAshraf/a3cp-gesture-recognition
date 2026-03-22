@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import asyncio
@@ -14,11 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 
-# MediaPipe is not thread-safe — one worker ensures sequential processing
-# while freeing the async event loop between frames.
-_frame_executor = ThreadPoolExecutor(max_workers=1)
-
 from .modules.camera import processor
+from .modules.features import extract_landmarks_from_json
 from .modules.recorder import RecordingSession, DATA_PATH, ensure_csv
 from .modules.trainer import TrainingSession, MODEL_PATH
 from .modules.recognizer import recognizer
@@ -165,17 +163,19 @@ async def import_legacy(username: str):
     return {"status": "ok", "copied": copied}
 
 
-# ─── WebSocket: camera frames ─────────────────────────────────────────────────
+# ─── WebSocket: landmarks from browser ───────────────────────────────────────
 
-@app.websocket("/ws/camera")
-async def camera_ws(websocket: WebSocket):
+@app.websocket("/ws/landmarks")
+async def landmarks_ws(websocket: WebSocket):
+    """Receive landmark JSON from browser-side MediaPipe Tasks JS."""
     await websocket.accept()
-    loop = asyncio.get_event_loop()
     try:
         while True:
-            raw_jpeg = await websocket.receive_bytes()
-            landmark_json = await loop.run_in_executor(_frame_executor, processor.process, raw_jpeg)
-            await websocket.send_bytes(landmark_json)
+            raw = await websocket.receive_text()
+            data = json.loads(raw)
+            lm = extract_landmarks_from_json(data)
+            if lm is not None and processor.landmark_callback:
+                processor.landmark_callback(lm)
     except WebSocketDisconnect:
         pass
     except Exception:
@@ -1019,7 +1019,7 @@ _RESTART_KEYS = {
     "MEDIAPIPE_MODEL_COMPLEXITY", "MEDIAPIPE_DETECTION_CONFIDENCE", "MEDIAPIPE_TRACKING_CONFIDENCE",
     "WINDOW_SIZE", "PREDICTION_INTERVAL",
     "EPOCHS", "BATCH_SIZE", "LEARNING_RATE", "TEST_SIZE",
-    "VELOCITY_THRESHOLD", "ACCELERATION_THRESHOLD", "FRAME_WINDOW", "KBEST_K",
+    "KBEST_K",
 }
 
 
