@@ -2,11 +2,10 @@
 # Requires Python 3.11
 
 # Vision & gesture
-mediapipe==0.10.9
+mediapipe==0.10.33
 opencv-python==4.9.0.80
 
 # ML
-# TF 2.15 resolves typing-extensions conflict with FastAPI >=0.115
 tensorflow==2.15.1
 numpy>=1.24,<1.27
 pandas>=2.0
