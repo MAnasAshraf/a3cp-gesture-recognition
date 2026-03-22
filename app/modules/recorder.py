@@ -4,7 +4,7 @@ import threading
 import time
 import numpy as np
 from pathlib import Path
-from .features import identify_keyframes, FEATURE_SIZE
+from .features import FEATURE_SIZE
 import app.config as cfg
 
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "gestures.csv"
@@ -62,7 +62,11 @@ class RecordingSession:
                 return
 
             arr = np.array(all_lm)
-            keyframes = identify_keyframes(arr)
+
+            # Truncate to MAX_SEQUENCE_LENGTH (keep last N frames — the gesture itself)
+            max_len = cfg.MAX_SEQUENCE_LENGTH
+            if len(arr) > max_len:
+                arr = arr[-max_len:]
 
             import pandas as pd
             if self._data_path.exists() and self._data_path.stat().st_size > 0:
@@ -71,18 +75,13 @@ class RecordingSession:
             else:
                 next_id = 1
 
-            frame_window = cfg.FRAME_WINDOW
+            # Save entire continuous sequence as one seq_id
             rows_written = 0
             with open(self._data_path, 'a', newline='') as f:
                 writer = csv.writer(f)
-                seq_id = next_id
-                for kf in keyframes:
-                    start_idx = max(0, kf - frame_window)
-                    end_idx = min(len(arr), kf + frame_window + 1)
-                    for idx in range(start_idx, end_idx):
-                        writer.writerow([self.gesture_name, seq_id] + list(arr[idx]))
-                        rows_written += 1
-                    seq_id += 1
+                for idx in range(len(arr)):
+                    writer.writerow([self.gesture_name, next_id] + list(arr[idx]))
+                    rows_written += 1
 
             self.frames_saved = rows_written
             self.status = "done"

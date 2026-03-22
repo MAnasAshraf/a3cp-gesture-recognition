@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 import app.config as cfg
+from .features import compute_deltas
 
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "gestures.csv"
 MODEL_DIR = Path(__file__).parent.parent.parent / "data" / "models"
@@ -56,10 +57,14 @@ class TrainingSession:
             for uid in unique_ids:
                 seq_df = df[df['unique_id'] == uid]
                 seq_data = seq_df.drop(columns=['class', 'sequence_id', 'unique_id']).values
+                # Append body-column deltas (velocity features)
+                seq_data = compute_deltas(seq_data)
                 sequences.append(seq_data)
                 labels.append(seq_df['class'].iloc[0])
 
-            X = pad_sequences(sequences, padding='post', dtype='float32', value=-1.0)
+            max_len = cfg.MAX_SEQUENCE_LENGTH
+            X = pad_sequences(sequences, maxlen=max_len, padding='post',
+                              dtype='float32', value=-1.0, truncating='pre')
             y = np.array(labels)
 
             le = LabelEncoder()
@@ -67,6 +72,7 @@ class TrainingSession:
             y_oh = to_categorical(y_enc)
 
             # Normalize angles: left hand (162–175) and right hand (239–252)
+            # (still in same positions within the base 1657 features)
             angle_positions = np.concatenate([np.arange(162, 176), np.arange(239, 253)])
             X[:, :, angle_positions] /= 180.0
 
@@ -76,9 +82,21 @@ class TrainingSession:
             if len(np.unique(y_enc)) < 2:
                 raise ValueError("Need at least 2 gesture classes to train.")
 
+            class_counts = np.bincount(y_enc)
+            min_count = int(class_counts.min())
+            if min_count < 2:
+                sparse = [le.classes_[i] for i, c in enumerate(class_counts) if c < 2]
+                raise ValueError(
+                    f"Each gesture needs at least 2 recordings before training. "
+                    f"These have only 1: {sparse}. Record more sessions and try again."
+                )
+
+            n_classes = len(le.classes_)
+            n_test = max(n_classes, int(len(sequences) * 0.2))
+            use_stratify = n_test < len(sequences) and min_count >= 2
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y_oh, test_size=0.2, random_state=42,
-                stratify=y_enc if len(np.unique(y_enc)) > 1 else None
+                X, y_oh, test_size=n_test, random_state=42,
+                stratify=y_enc if use_stratify else None
             )
 
             class_weights = compute_class_weight('balanced', classes=np.unique(y_enc), y=y_enc)

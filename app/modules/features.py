@@ -11,6 +11,17 @@ FEATURE_SIZE = (NUM_POSE + NUM_HAND + NUM_HAND + NUM_FACE) * 3 + NUM_ANGLES * 2 
 FACE_COL_START = NUM_POSE * 3 + NUM_HAND * 3 + NUM_ANGLES + NUM_HAND * 3 + NUM_ANGLES  # = 253
 FACE_COL_END   = FEATURE_SIZE  # = 1657
 
+# Delta features: body columns (pose+hands) only
+DELTA_FEATURE_SIZE = FACE_COL_START    # = 253
+FULL_FEATURE_SIZE  = FEATURE_SIZE + DELTA_FEATURE_SIZE  # = 1910
+
+# Shoulder landmark indices in pose block (used for centroid normalization)
+_SHOULDER_L_IDX = 11  # MediaPipe pose landmark 11 = left shoulder
+_SHOULDER_R_IDX = 12  # MediaPipe pose landmark 12 = right shoulder
+
+# Cache for last known mid-shoulder position (fallback when pose is lost)
+_last_mid_shoulder = None
+
 # Angle column indices (used for normalisation during training/inference)
 LEFT_ANGLE_COLS  = np.arange(NUM_POSE * 3 + NUM_HAND * 3,
                               NUM_POSE * 3 + NUM_HAND * 3 + NUM_ANGLES)           # 162–175
@@ -36,13 +47,71 @@ def calculate_acceleration(velocities):
 def identify_keyframes(landmarks, velocity_threshold=0.1, acceleration_threshold=0.1):
     if len(landmarks) < 3:
         return list(range(len(landmarks)))
-    velocities = calculate_velocity(landmarks)
+    # Use only pose + hand columns (0–252) for velocity/acceleration.
+    # Face landmarks (253–1656) dominate the L2 norm and dilute hand movement,
+    # causing keyframes to be missed for hand-dominant gestures like clapping.
+    body_cols = landmarks[:, :FACE_COL_START] if landmarks.ndim == 2 else landmarks
+    velocities = calculate_velocity(body_cols)
     accelerations = calculate_acceleration(velocities)
     keyframes = []
     for i in range(len(accelerations)):
         if velocities[i] > velocity_threshold or accelerations[i] > acceleration_threshold:
             keyframes.append(i + 1)
     return keyframes if keyframes else list(range(len(landmarks)))
+
+def compute_deltas(sequence: np.ndarray) -> np.ndarray:
+    """Append body-column deltas (velocity) to each frame.
+
+    Input:  (T, 1657)  — centroid-normalized frames
+    Output: (T, 1910)  — base features + frame-to-frame deltas for cols 0–252
+    """
+    body = sequence[:, :FACE_COL_START]  # (T, 253)
+    deltas = np.zeros_like(body)
+    deltas[1:] = body[1:] - body[:-1]   # first frame delta = 0
+    return np.concatenate([sequence, deltas], axis=1)
+
+
+def _centroid_normalize(arr: np.ndarray) -> np.ndarray:
+    """Subtract mid-shoulder (x,y) from all landmark coordinates in-place.
+
+    Skips angle columns (162–175, 239–252) and visibility values.
+    Uses cached mid-shoulder if pose is missing for the current frame.
+    """
+    global _last_mid_shoulder
+
+    # Mid-shoulder from pose landmarks 11 and 12 (each is x,y,vis triplet)
+    lx = arr[_SHOULDER_L_IDX * 3]       # pose[11].x
+    ly = arr[_SHOULDER_L_IDX * 3 + 1]   # pose[11].y
+    rx = arr[_SHOULDER_R_IDX * 3]       # pose[12].x
+    ry = arr[_SHOULDER_R_IDX * 3 + 1]   # pose[12].y
+
+    has_pose = not (lx == 0.0 and ly == 0.0 and rx == 0.0 and ry == 0.0)
+
+    if has_pose:
+        mid_x = (lx + rx) / 2.0
+        mid_y = (ly + ry) / 2.0
+        _last_mid_shoulder = (mid_x, mid_y)
+    elif _last_mid_shoulder is not None:
+        mid_x, mid_y = _last_mid_shoulder
+    else:
+        return arr  # no shoulder reference ever — skip normalization
+
+    # Ranges of (x, y, vis) triplets to normalize (skip angle blocks)
+    triplet_ranges = [
+        (0, NUM_POSE * 3),          # pose:       0–98
+        (99, 99 + NUM_HAND * 3),    # left hand:  99–161
+        # 162–175 = left angles → SKIP
+        (176, 176 + NUM_HAND * 3),  # right hand: 176–238
+        # 239–252 = right angles → SKIP
+        (FACE_COL_START, FACE_COL_END),  # face: 253–1656
+    ]
+    for start, end in triplet_ranges:
+        arr[start:end:3] -= mid_x    # x values
+        arr[start + 1:end:3] -= mid_y  # y values
+        # visibility (every 3rd+2) unchanged
+
+    return arr
+
 
 def calculate_angle(a, b, c):
     a, b, c = np.array(a), np.array(b), np.array(c)
@@ -70,6 +139,83 @@ def _hand_angles(h):
         calculate_angle([h[17].x,h[17].y],[h[18].x,h[18].y],[h[19].x,h[19].y]),
         calculate_angle([h[18].x,h[18].y],[h[19].x,h[19].y],[h[20].x,h[20].y]),
     ]
+
+def _hand_angles_from_list(h):
+    """Calculate 14 joint angles from a hand landmark list of [x, y, vis] triples."""
+    return [
+        calculate_angle(h[1][:2], h[2][:2], h[3][:2]),
+        calculate_angle(h[2][:2], h[3][:2], h[4][:2]),
+        calculate_angle(h[0][:2], h[5][:2], h[6][:2]),
+        calculate_angle(h[5][:2], h[6][:2], h[7][:2]),
+        calculate_angle(h[6][:2], h[7][:2], h[8][:2]),
+        calculate_angle(h[0][:2], h[9][:2], h[10][:2]),
+        calculate_angle(h[9][:2], h[10][:2], h[11][:2]),
+        calculate_angle(h[10][:2], h[11][:2], h[12][:2]),
+        calculate_angle(h[0][:2], h[13][:2], h[14][:2]),
+        calculate_angle(h[13][:2], h[14][:2], h[15][:2]),
+        calculate_angle(h[14][:2], h[15][:2], h[16][:2]),
+        calculate_angle(h[0][:2], h[17][:2], h[18][:2]),
+        calculate_angle(h[17][:2], h[18][:2], h[19][:2]),
+        calculate_angle(h[18][:2], h[19][:2], h[20][:2]),
+    ]
+
+
+def extract_landmarks_from_json(data: dict):
+    """Extract feature vector from browser-side landmark JSON.
+
+    data format: {
+        "pose": [[x, y, visibility], ...] or null  (33 landmarks)
+        "left_hand": [[x, y, visibility], ...] or null  (21 landmarks)
+        "right_hand": [[x, y, visibility], ...] or null  (21 landmarks)
+        "face": [[x, y, visibility], ...] or null  (468 landmarks)
+    }
+
+    Returns np.array of shape (1657,) or None.
+    """
+    landmarks = []
+
+    # Pose (33 * 3 = 99) — cols 0–98
+    pose = data.get("pose")
+    if pose and len(pose) >= NUM_POSE:
+        for lm in pose[:NUM_POSE]:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+    else:
+        landmarks.extend([0.0] * NUM_POSE * 3)
+
+    # Left hand (21 * 3 = 63) + angles (14) — cols 99–175
+    left = data.get("left_hand")
+    if left and len(left) >= NUM_HAND:
+        hand = left[:NUM_HAND]
+        for lm in hand:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+        landmarks.extend(_hand_angles_from_list(hand))
+    else:
+        landmarks.extend([0.0] * (NUM_HAND * 3 + NUM_ANGLES))
+
+    # Right hand (21 * 3 = 63) + angles (14) — cols 176–252
+    right = data.get("right_hand")
+    if right and len(right) >= NUM_HAND:
+        hand = right[:NUM_HAND]
+        for lm in hand:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+        landmarks.extend(_hand_angles_from_list(hand))
+    else:
+        landmarks.extend([0.0] * (NUM_HAND * 3 + NUM_ANGLES))
+
+    # Face (468 * 3 = 1404) — cols 253–1656
+    face = data.get("face")
+    if face and len(face) >= NUM_FACE:
+        for lm in face[:NUM_FACE]:
+            landmarks.extend([lm[0], lm[1], lm[2] if len(lm) > 2 else 0.0])
+    else:
+        landmarks.extend([0.0] * NUM_FACE * 3)
+
+    arr = np.array(landmarks, dtype=np.float64)
+    if len(arr) != FEATURE_SIZE:
+        return None
+    arr = _centroid_normalize(arr)
+    return arr
+
 
 def extract_landmarks(results):
     """Extract feature vector from MediaPipe holistic results. Returns np.array of shape (1657,) or None."""
@@ -108,4 +254,5 @@ def extract_landmarks(results):
     arr = np.array(landmarks)
     if len(arr) != FEATURE_SIZE:
         return None
+    arr = _centroid_normalize(arr)
     return arr

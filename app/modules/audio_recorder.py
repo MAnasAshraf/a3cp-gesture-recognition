@@ -9,7 +9,9 @@ SAMPLE_RATE        = cfg.SAMPLE_RATE
 WINDOW_DURATION    = cfg.WINDOW_DURATION
 HOP_DURATION       = cfg.HOP_DURATION
 N_MFCC             = cfg.N_MFCC
-AUDIO_FEATURE_SIZE = cfg.N_MFCC * 3 + 4   # mfcc + delta + delta2 + 4 spectral = 43
+# mfcc(mean+max+std) + delta(mean+max+std) + delta2(mean+max+std) + 4 spectral
+# = 13*3*3 + 4 = 121
+AUDIO_FEATURE_SIZE = cfg.N_MFCC * 3 * 3 + 4
 
 DATA_PATH = Path(__file__).parent.parent.parent / "data" / "audio_gestures.csv"
 HEADER    = ["class", "sequence_id"] + [f"f_{i}" for i in range(AUDIO_FEATURE_SIZE)]
@@ -37,7 +39,9 @@ def extract_audio_features(audio_window: np.ndarray, sr: int = SAMPLE_RATE):
         zcr      = librosa.feature.zero_crossing_rate(audio_window)
         rms      = librosa.feature.rms(y=audio_window.astype(np.float32))
         return np.concatenate([
-            mfcc.mean(axis=1), delta.mean(axis=1), delta2.mean(axis=1),
+            mfcc.mean(axis=1),  mfcc.max(axis=1),  mfcc.std(axis=1),
+            delta.mean(axis=1), delta.max(axis=1),  delta.std(axis=1),
+            delta2.mean(axis=1),delta2.max(axis=1), delta2.std(axis=1),
             [float(centroid.mean()), float(rolloff.mean()),
              float(zcr.mean()),      float(rms.mean())]
         ])

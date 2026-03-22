@@ -8,6 +8,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script type="module">
+    import { FilesetResolver, HolisticLandmarker } from
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
+    window._FilesetResolver = FilesetResolver;
+    window._HolisticLandmarker = HolisticLandmarker;
+    window.dispatchEvent(new Event('mediapipe-ready'));
+  </script>
 
   <style>
     :root {
@@ -2110,6 +2117,10 @@ async function startRecording() {
     });
     if (!res.ok) throw new Error((await res.json()).detail || 'Error');
 
+    // Connect landmark WebSocket so server receives landmarks during recording
+    landmarkWsNeeded = true;
+    connectLandmarkWs();
+
     state.recRecording = true;
     document.getElementById('rec-start-btn').disabled = true;
     document.getElementById('rec-stop-btn').classList.remove('hidden');
@@ -2127,6 +2138,7 @@ async function startRecording() {
 
 async function stopRecording() {
   await fetch('/api/record/stop', { method: 'POST' });
+  disconnectLandmarkWs();
   clearInterval(state.recPollInterval);
   // let poll one more time
   setTimeout(pollRecording, 600);
@@ -2141,6 +2153,7 @@ async function pollRecording() {
 
     if (data.status === 'done' || data.status === 'error') {
       clearInterval(state.recPollInterval);
+      disconnectLandmarkWs();
       state.recRecording = false;
       document.getElementById('rec-start-btn').disabled = false;
       document.getElementById('rec-stop-btn').classList.add('hidden');
@@ -2361,6 +2374,10 @@ async function startInference() {
       await ensureAudioWs();
     } catch(e) { console.warn('Audio inference unavailable:', e); }
 
+    // Connect landmark WebSocket so server receives landmarks for inference
+    landmarkWsNeeded = true;
+    connectLandmarkWs();
+
     state.infRunning = true;
     document.getElementById('inf-start-btn').classList.add('hidden');
     document.getElementById('inf-stop-btn').classList.remove('hidden');
@@ -2374,6 +2391,7 @@ async function startInference() {
 
 async function stopInference() {
   clearInterval(state.infPollInterval);
+  disconnectLandmarkWs();
   await fetch('/api/inference/stop', { method: 'POST' });
   try {
     await fetch('/api/audio/inference/stop', { method: 'POST' });
@@ -2552,6 +2570,10 @@ async function startJointRecording() {
     });
     if (!res.ok) { releaseAudioWs(); throw new Error((await res.json()).detail || 'Error'); }
 
+    // Connect landmark WebSocket for joint recording
+    landmarkWsNeeded = true;
+    connectLandmarkWs();
+
     document.getElementById('jrec-start-btn').disabled = true;
     document.getElementById('jrec-stop-btn').classList.remove('hidden');
     document.getElementById('jrec-live-badge').classList.remove('hidden');
@@ -2566,6 +2588,7 @@ async function startJointRecording() {
 
 async function stopJointRecording() {
   await fetch('/api/joint/record/stop', { method: 'POST' });
+  disconnectLandmarkWs();
   clearInterval(state.jrecPollInterval);
   releaseAudioWs();
   document.getElementById('jrec-live-badge').classList.add('hidden');
@@ -2581,6 +2604,7 @@ async function pollJointRecording() {
 
     if (data.status === 'done' || data.status === 'error') {
       clearInterval(state.jrecPollInterval);
+      disconnectLandmarkWs();
       document.getElementById('jrec-start-btn').disabled = false;
       document.getElementById('jrec-stop-btn').classList.add('hidden');
       document.getElementById('jrec-live-badge').classList.add('hidden');
@@ -3151,16 +3175,17 @@ function drawSkeleton(canvas, data) {
   }
 }
 
-// ─── Camera / WebSocket ───────────────────────────────────────────────────────
-let cameraWs = null;
+// ─── Camera / MediaPipe Tasks JS ─────────────────────────────────────────────
 let cameraStream = null;
-let wsReconnectTimer = null;
-let waitingForResponse = false;
 let frameLoopActive = false;
-const sendCanvas = document.createElement('canvas');
-sendCanvas.width = 640;
-sendCanvas.height = 480;
-const sendCtx = sendCanvas.getContext('2d');
+let holisticLandmarker = null;
+let mediapipeReady = false;
+let landmarkWs = null;
+let landmarkWsNeeded = false;
+
+const FACE_OVAL_INDICES = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,
+                           378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,
+                           162,21,54,103,67,109];
 
 function setCameraStatus(online, text) {
   const dot  = document.getElementById('cam-status-dot');
@@ -3169,16 +3194,156 @@ function setCameraStatus(online, text) {
   if (txt) { txt.textContent = text || (online ? 'Camera active' : 'Camera offline'); }
 }
 
+async function initMediaPipe() {
+  // Wait for the module script to load if it hasn't yet
+  if (!window._FilesetResolver) {
+    await new Promise(resolve => window.addEventListener('mediapipe-ready', resolve, { once: true }));
+  }
+  const vision = await _FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
+  );
+  holisticLandmarker = await _HolisticLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numFaces: 1,
+    numHands: 2,
+    numPoses: 1,
+    minFaceDetectionConfidence: 0.5,
+    minFacePresenceConfidence: 0.5,
+    minHandDetectionConfidence: 0.5,
+    minHandPresenceConfidence: 0.5,
+    minPoseDetectionConfidence: 0.5,
+    minPosePresenceConfidence: 0.5,
+    outputFaceBlendshapes: false,
+    outputFacialTransformationMatrixes: false
+  });
+  mediapipeReady = true;
+}
+
+function buildLandmarkPayload(results) {
+  const pose = results.poseLandmarks && results.poseLandmarks.length > 0
+    ? results.poseLandmarks[0].map(lm => [lm.x, lm.y, lm.visibility ?? 0])
+    : null;
+  const left_hand = results.leftHandLandmarks && results.leftHandLandmarks.length > 0
+    ? results.leftHandLandmarks[0].map(lm => [lm.x, lm.y, lm.visibility ?? 0])
+    : null;
+  const right_hand = results.rightHandLandmarks && results.rightHandLandmarks.length > 0
+    ? results.rightHandLandmarks[0].map(lm => [lm.x, lm.y, lm.visibility ?? 0])
+    : null;
+  // Tasks JS outputs 478 face landmarks; we only need first 468 for compatibility
+  const face = results.faceLandmarks && results.faceLandmarks.length > 0
+    ? results.faceLandmarks[0].slice(0, 468).map(lm => [lm.x, lm.y, lm.visibility ?? 0])
+    : null;
+  return { pose, left_hand, right_hand, face };
+}
+
+function drawSkeletonFromResults(canvas, results, video) {
+  if (video && video.videoWidth > 0 &&
+      (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+  canvas.style.display = 'block';
+
+  const data = {
+    pose: results.poseLandmarks?.[0]?.map(lm => [lm.x, lm.y, lm.visibility ?? 0]) || null,
+    left_hand: results.leftHandLandmarks?.[0]?.map(lm => [lm.x, lm.y]) || null,
+    right_hand: results.rightHandLandmarks?.[0]?.map(lm => [lm.x, lm.y]) || null,
+    face_oval: results.faceLandmarks?.[0]
+      ? FACE_OVAL_INDICES.map(i => [results.faceLandmarks[0][i].x, results.faceLandmarks[0][i].y])
+      : null,
+    prediction: null
+  };
+
+  // Show latest prediction if inference is running
+  if (state.infRunning) {
+    const pred = document.getElementById('inf-class')?.textContent;
+    const conf = document.getElementById('inf-conf-text')?.textContent;
+    if (pred && pred !== '—') data.prediction = `${pred} (${conf})`;
+  }
+
+  drawSkeleton(canvas, data);
+}
+
+let _lastFrameTime = 0;
+const FRAME_INTERVAL = 1000 / 15;   // cap at ~15 fps
+
+function processNextFrame(ts) {
+  if (!frameLoopActive || !mediapipeReady || !holisticLandmarker) {
+    if (frameLoopActive) requestAnimationFrame(processNextFrame);
+    return;
+  }
+
+  if (ts && ts - _lastFrameTime < FRAME_INTERVAL) {
+    requestAnimationFrame(processNextFrame);
+    return;
+  }
+  _lastFrameTime = ts || performance.now();
+
+  const videoId = state.currentPage === 'recognize' ? 'inf-camera-video'
+                : state.currentPage === 'joint-record' ? 'jrec-camera-video'
+                : 'rec-camera-video';
+  const video = document.getElementById(videoId);
+  if (!video || video.readyState < 2) {
+    requestAnimationFrame(processNextFrame);
+    return;
+  }
+
+  const results = holisticLandmarker.detectForVideo(video, performance.now());
+
+  // Draw skeleton immediately — zero network latency
+  const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas'
+                 : state.currentPage === 'joint-record' ? 'jrec-camera-canvas'
+                 : 'rec-camera-canvas';
+  const canvas = document.getElementById(canvasId);
+  if (canvas) drawSkeletonFromResults(canvas, results, video);
+
+  // Send landmarks to server only when recording or doing inference
+  if (landmarkWsNeeded && landmarkWs && landmarkWs.readyState === WebSocket.OPEN) {
+    const payload = buildLandmarkPayload(results);
+    landmarkWs.send(JSON.stringify(payload));
+  }
+
+  requestAnimationFrame(processNextFrame);
+}
+
+function connectLandmarkWs() {
+  if (landmarkWs && landmarkWs.readyState === WebSocket.OPEN) return;
+  if (landmarkWs) { landmarkWs.close(); landmarkWs = null; }
+
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  landmarkWs = new WebSocket(`${wsProto}//${location.host}/ws/landmarks`);
+
+  landmarkWs.onopen = () => console.log('Landmark WS connected');
+  landmarkWs.onclose = () => {
+    console.log('Landmark WS closed');
+    landmarkWs = null;
+    if (landmarkWsNeeded) setTimeout(connectLandmarkWs, 2000);
+  };
+  landmarkWs.onerror = (e) => console.warn('Landmark WS error', e);
+}
+
+function disconnectLandmarkWs() {
+  landmarkWsNeeded = false;
+  if (landmarkWs) {
+    landmarkWs.onclose = null;
+    landmarkWs.close();
+    landmarkWs = null;
+  }
+}
+
 async function startCamera() {
-  // If stream already active, just reconnect WebSocket if needed
   if (cameraStream && cameraStream.active) {
-    if (!cameraWs || cameraWs.readyState !== WebSocket.OPEN) {
-      connectWebSocket();
+    if (!frameLoopActive) {
+      frameLoopActive = true;
+      requestAnimationFrame(processNextFrame);
     }
     return;
   }
 
-  // Stop any stale state first
   stopCamera();
 
   try {
@@ -3190,14 +3355,19 @@ async function startCamera() {
     // Wire stream to ALL video elements — whichever is visible will show it
     ['rec-camera-video', 'inf-camera-video', 'jrec-camera-video'].forEach(id => {
       const v = document.getElementById(id);
-      if (v) {
-        v.srcObject = cameraStream;
-        v.play().catch(() => {});
-      }
+      if (v) { v.srcObject = cameraStream; v.play().catch(() => {}); }
     });
 
+    // Initialize MediaPipe Tasks JS if not already done
+    if (!mediapipeReady) {
+      setCameraStatus(false, 'Loading MediaPipe...');
+      await initMediaPipe();
+    }
+
     setCameraStatus(true, 'Camera active');
-    connectWebSocket();
+    frameLoopActive = true;
+    _lastFrameTime = 0;
+    requestAnimationFrame(processNextFrame);
 
   } catch (err) {
     console.error('Camera error:', err);
@@ -3206,124 +3376,9 @@ async function startCamera() {
   }
 }
 
-function connectWebSocket() {
-  if (cameraWs && cameraWs.readyState === WebSocket.OPEN) return;
-  if (cameraWs) { cameraWs.close(); cameraWs = null; }
-
-  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  cameraWs = new WebSocket(`${wsProto}//${location.host}/ws/camera`);
-  cameraWs.binaryType = 'arraybuffer';
-
-  cameraWs.onopen = () => {
-    console.log('WebSocket connected');
-    setCameraStatus(true, 'Camera active');
-    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
-    
-    // Start frame loop
-    frameLoopActive = true;
-    waitingForResponse = false;
-    _lastFrameTime = 0;
-    requestAnimationFrame(sendNextFrame);
-  };
-
-  cameraWs.onmessage = (e) => {
-    // Server returns JSON with landmark positions — draw skeleton client-side
-    // on the transparent canvas overlay. The live <video> shows behind it.
-    try {
-      const data = JSON.parse(
-        typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data)
-      );
-      const canvasId = state.currentPage === 'recognize' ? 'inf-camera-canvas'
-                     : state.currentPage === 'joint-record' ? 'jrec-camera-canvas'
-                     : 'rec-camera-canvas';
-      const canvas = document.getElementById(canvasId);
-      if (canvas) {
-        // Size canvas to match the video element once
-        const vid = document.getElementById(
-          state.currentPage === 'recognize' ? 'inf-camera-video'
-          : state.currentPage === 'joint-record' ? 'jrec-camera-video'
-          : 'rec-camera-video'
-        );
-        if (vid && (canvas.width !== vid.videoWidth || canvas.height !== vid.videoHeight)
-            && vid.videoWidth > 0) {
-          canvas.width  = vid.videoWidth;
-          canvas.height = vid.videoHeight;
-        }
-        canvas.style.display = 'block';
-        drawSkeleton(canvas, data);
-      }
-    } catch(err) { /* ignore malformed frame */ }
-
-    waitingForResponse = false;
-    if (frameLoopActive) requestAnimationFrame(sendNextFrame);
-  };
-
-  cameraWs.onerror = (e) => {
-    console.warn('WebSocket error', e);
-    setCameraStatus(false, 'Connection error');
-  };
-
-  cameraWs.onclose = () => {
-    console.log('WebSocket closed');
-    frameLoopActive = false;
-    waitingForResponse = false;
-    // Auto-reconnect if we are still on a camera page
-    if (state.currentPage === 'record' || state.currentPage === 'recognize') {
-      setCameraStatus(false, 'Reconnecting...');
-      wsReconnectTimer = setTimeout(() => {
-        if (cameraStream && cameraStream.active) {
-          connectWebSocket();
-        }
-      }, 2000);
-    }
-  };
-}
-
-let _lastFrameTime = 0;
-const FRAME_INTERVAL = 1000 / 15;   // cap at 15 fps to backend
-
-function sendNextFrame(ts) {
-  if (!frameLoopActive || waitingForResponse) return;
-  if (!cameraWs || cameraWs.readyState !== WebSocket.OPEN) return;
-
-  // Rate-limit sends to FRAME_INTERVAL (don't overwhelm backend)
-  if (ts && ts - _lastFrameTime < FRAME_INTERVAL) {
-    requestAnimationFrame(sendNextFrame);
-    return;
-  }
-  _lastFrameTime = ts || performance.now();
-
-  const videoId = state.currentPage === 'recognize' ? 'inf-camera-video'
-                : state.currentPage === 'joint-record' ? 'jrec-camera-video'
-                : 'rec-camera-video';
-  const video = document.getElementById(videoId);
-  if (!video || video.readyState < 2) {
-    setTimeout(() => requestAnimationFrame(sendNextFrame), 100);
-    return;
-  }
-
-  waitingForResponse = true;
-  sendCtx.drawImage(video, 0, 0, 640, 480);
-  sendCanvas.toBlob(blob => {
-    if (blob && cameraWs && cameraWs.readyState === WebSocket.OPEN) {
-      blob.arrayBuffer().then(buf => cameraWs.send(buf)).catch(() => {
-        waitingForResponse = false;
-      });
-    } else {
-      waitingForResponse = false;
-    }
-  }, 'image/jpeg', 0.75);
-}
-
 function stopCamera() {
-  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   frameLoopActive = false;
-  waitingForResponse = false;
-  if (cameraWs) {
-    cameraWs.onclose = null;  // prevent auto-reconnect
-    cameraWs.close();
-    cameraWs = null;
-  }
+  disconnectLandmarkWs();
   if (cameraStream) {
     cameraStream.getTracks().forEach(t => t.stop());
     cameraStream = null;

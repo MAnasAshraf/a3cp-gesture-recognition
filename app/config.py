@@ -20,6 +20,8 @@ THETA_AUD  = 0.90   # audio overrides all streams at or above this confidence
 THETA_VIS  = 0.85   # movement wins as primary at or above this confidence
 W_AGREE    = 1.10   # confidence multiplier when two streams agree
 W_DISAGREE = 0.90   # confidence multiplier when streams disagree
+HAND_VEL_THRESH  = 0.02   # mean hand-landmark velocity above which hands are "active"
+THETA_MIN        = 0.20   # minimum confidence for any fusion output (below = "no gesture")
 
 # ── Recognition ───────────────────────────────────────────────────────────────
 
@@ -33,7 +35,7 @@ SAMPLE_RATE     = 22050  # Hz — must match browser AudioContext sampleRate (re
 N_MFCC          = 13     # MFCC coefficients extracted per window
 WINDOW_DURATION = 0.5    # seconds per analysis window
 HOP_DURATION    = 0.1    # seconds between consecutive windows
-KBEST_K         = 14     # SelectKBest feature count for audio model (matches notebook cell 30)
+KBEST_K         = 14     # SelectKBest feature count for audio model (from 121-dim feature pool)
 
 # ── Camera and MediaPipe  (restart required) ──────────────────────────────────
 
@@ -50,11 +52,9 @@ BATCH_SIZE    = 32
 LEARNING_RATE = 0.001
 TEST_SIZE     = 0.2    # fraction of data reserved for validation
 
-# ── Keyframe detection  (movement recording) ──────────────────────────────────
+# ── Sequence length  (movement recording + inference) ─────────────────────────
 
-VELOCITY_THRESHOLD     = 0.1
-ACCELERATION_THRESHOLD = 0.1
-FRAME_WINDOW           = 5    # frames around each keyframe to include
+MAX_SEQUENCE_LENGTH = 60  # ≈4s at 15fps — pad/truncate all sequences to this length
 
 # ── Landmark skeleton colours  (CSS rgba strings) ─────────────────────────────
 # Can be changed live from the Settings page.
