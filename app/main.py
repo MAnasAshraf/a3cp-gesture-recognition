@@ -1013,7 +1013,16 @@ async def get_fusion_prediction():
     au   = audio_recognizer.get_prediction()
     hand_active = recognizer.hands_active()
     fused = _heuristic_fusion(mv, face, au, hand_active=hand_active)
-    return {"movement": mv, "face": face, "audio": au, "fused": fused, "hand_active": hand_active}
+    return {
+        "movement": mv, "face": face, "audio": au,
+        "fused": fused, "hand_active": hand_active,
+        "_debug": {
+            "mode": processor.mode,
+            "callback_set": processor.landmark_callback is not None,
+            "mv_frames": len(recognizer.window),
+            "mv_loaded": recognizer.is_loaded(),
+        },
+    }
 
 
 # ─── Model upload (for deploying pre-trained models to Railway) ──────────────
