@@ -910,15 +910,15 @@ async def record_from_video(
 # ─── Fusion ───────────────────────────────────────────────────────────────────
 # Thresholds read from cfg at call time — live-updateable via /api/config/apply
 
-def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
+def _heuristic_fusion(mv: dict, face: dict, au: dict, hand_active: bool = False) -> dict:
     mc, mf = mv["class"],   mv["confidence"]
     ac, af = au["class"],   au["confidence"]
-    fc, ff = face["class"], face["confidence"]  # noqa: F841
+    fc, ff = face["class"], face["confidence"]
 
-    theta_aud  = cfg.THETA_AUD
-    theta_vis  = cfg.THETA_VIS
-    w_agree    = cfg.W_AGREE
-    w_disagree = cfg.W_DISAGREE
+    theta_aud     = cfg.THETA_AUD
+    theta_vis     = cfg.THETA_VIS
+    w_agree       = cfg.W_AGREE
+    w_disagree    = cfg.W_DISAGREE
 
     # Audio override: strong audio signal wins regardless of movement
     if ac != "—" and af >= theta_aud:
@@ -942,9 +942,12 @@ def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
         elif ac != "—":
             conf *= w_disagree
             modifiers.append(f"Audio disagrees → ×{w_disagree}")
-        if fc == mc:
+        # Face agreement boost only when hands are NOT active
+        if not hand_active and fc == mc:
             conf = min(1.0, conf * 1.05)
             modifiers.append("Face agrees → ×1.05")
+        elif hand_active:
+            modifiers.append("Face suppressed (hands active)")
         return {
             "class": mc, "confidence": round(conf, 3),
             "rule": "movement_primary",
@@ -952,9 +955,9 @@ def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
             "detail": ", ".join(modifiers) if modifiers else "No modifiers applied",
         }
 
-    # Below all thresholds: highest-confidence stream wins (discounted)
-    candidates = [(mc, mf), (ac, af), (fc, ff)]
-    candidates = [(c, f) for c, f in candidates if c and c != "—"]
+    # Below all thresholds: best of movement/audio wins (face is modifier only).
+    candidates = [(mc, mf, "movement"), (ac, af, "audio")]
+    candidates = [(c, f, src) for c, f, src in candidates if c and c != "—"]
     if not candidates:
         return {
             "class": "—", "confidence": 0.0,
@@ -962,12 +965,30 @@ def _heuristic_fusion(mv: dict, face: dict, au: dict) -> dict:
             "rule_label": "No gesture detected",
             "detail": f"All streams below thresholds (Movement<{round(theta_vis*100)}%, Audio<{round(theta_aud*100)}%)",
         }
-    best_c, best_f = max(candidates, key=lambda x: x[1])
+    best_c, best_f, best_src = max(candidates, key=lambda x: x[1])
+
+    # THETA_MIN gate: if best candidate is below minimum, report no gesture
+    theta_min = cfg.THETA_MIN
+    if best_f < theta_min:
+        return {
+            "class": "—", "confidence": 0.0,
+            "rule": "below_minimum",
+            "rule_label": "No gesture detected",
+            "detail": f"Best stream ({best_src}) {round(best_f*100)}% < {round(theta_min*100)}% minimum",
+        }
+
+    conf = best_f * w_disagree
+    modifiers = []
+    # Face acts as supporting modifier only — never primary
+    if fc == best_c and not hand_active:
+        conf = min(1.0, conf * 1.05)
+        modifiers.append("Face agrees → ×1.05")
     return {
-        "class": best_c, "confidence": round(best_f * w_disagree, 3),
+        "class": best_c, "confidence": round(conf, 3),
         "rule": "low_confidence",
         "rule_label": f"Low confidence — best stream {round(best_f*100)}% (discounted)",
-        "detail": f"Movement {round(mf*100)}% < {round(theta_vis*100)}%, Audio {round(af*100)}% < {round(theta_aud*100)}% — uncertain",
+        "detail": f"Movement {round(mf*100)}%, Audio {round(af*100)}% — winner: {best_src}" +
+                  (f", {', '.join(modifiers)}" if modifiers else ""),
     }
 
 
@@ -977,8 +998,9 @@ async def get_fusion_prediction():
     mv   = recognizer.get_prediction()
     face = face_recognizer.get_prediction() if face_recognizer.is_loaded() else {"class": "—", "confidence": 0.0}
     au   = audio_recognizer.get_prediction()
-    fused = _heuristic_fusion(mv, face, au)
-    return {"movement": mv, "face": face, "audio": au, "fused": fused}
+    hand_active = recognizer.hands_active()
+    fused = _heuristic_fusion(mv, face, au, hand_active=hand_active)
+    return {"movement": mv, "face": face, "audio": au, "fused": fused, "hand_active": hand_active}
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────

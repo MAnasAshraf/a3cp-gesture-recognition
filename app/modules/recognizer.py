@@ -7,6 +7,7 @@ from collections import deque
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import app.config as cfg
+from .features import compute_deltas
 
 MODEL_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "movement_model.h5"
 ENCODER_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "label_encoder.pkl"
@@ -14,11 +15,12 @@ ENCODER_PATH = Path(__file__).parent.parent.parent / "data" / "models" / "label_
 ANGLE_COLS = slice(162, 176)  # left-hand angle columns normalised by /180 during training
 
 class Recognizer:
-    def __init__(self, window_size=11):
-        self._default_window_size = window_size
+    def __init__(self, window_size=None):
+        ws = window_size or cfg.MAX_SEQUENCE_LENGTH
+        self._default_window_size = ws
         self.model = None
         self.le = None
-        self.window = deque(maxlen=window_size)
+        self.window = deque(maxlen=ws)
         self.prediction = {"class": "—", "confidence": 0.0}
         self._probs = None   # raw softmax array for meta-learner
         self.running = False
@@ -60,6 +62,8 @@ class Recognizer:
         seq = np.array(snapshot, dtype='float32')
         # Apply the same angle normalization used during training (trainer.py)
         seq[:, ANGLE_COLS] /= 180.0
+        # Append body-column deltas (velocity features)
+        seq = compute_deltas(seq)
         X = pad_sequences([seq], padding='post', dtype='float32', value=-1.0)
         probs = self.model.predict(X, verbose=0)[0]
         idx = np.argmax(probs)
@@ -81,5 +85,22 @@ class Recognizer:
         """Return raw softmax probabilities (list of floats) for the meta-learner."""
         with self._lock:
             return list(self._probs) if self._probs is not None else None
+
+    def hands_active(self, vel_thresh: float = None) -> bool:
+        """Return True if recent hand landmarks show significant movement.
+
+        Computes mean frame-to-frame velocity across hand columns (99–252)
+        in the current sliding window.
+        """
+        thresh = vel_thresh if vel_thresh is not None else cfg.HAND_VEL_THRESH
+        with self._lock:
+            if len(self.window) < 3:
+                return False
+            frames = list(self.window)
+        arr = np.array(frames, dtype="float32")
+        # Hand columns: left hand (99–175) + right hand (176–252)
+        hand_data = arr[:, 99:253]
+        diffs = np.linalg.norm(np.diff(hand_data, axis=0), axis=1)
+        return float(np.mean(diffs)) > thresh
 
 recognizer = Recognizer()

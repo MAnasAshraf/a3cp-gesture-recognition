@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import joblib
 import threading
@@ -5,6 +6,8 @@ from pathlib import Path
 from collections import deque
 
 import app.config as cfg
+
+logger = logging.getLogger(__name__)
 from .audio_recorder import extract_audio_features
 
 MODEL_PATH    = Path(__file__).parent.parent.parent / "data" / "models" / "audio_model.h5"
@@ -44,6 +47,8 @@ class AudioRecognizer:
         self.le    = joblib.load(ep)
         self._scaler   = joblib.load(sp)   if sp.exists() else None
         self._selector = joblib.load(sl)   if sl.exists() else None
+        if self._selector is not None:
+            logger.info("AudioRecognizer: SelectKBest kept features %s", list(np.where(self._selector.get_support())[0]))
         try:
             self._seq_len = self.model.input_shape[1]
         except Exception:
@@ -110,8 +115,8 @@ class AudioRecognizer:
             with self._lock:
                 self.prediction = result
                 self._probs     = probs.tolist()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Audio predict error: %s", e)
 
     def get_prediction(self) -> dict:
         with self._lock:

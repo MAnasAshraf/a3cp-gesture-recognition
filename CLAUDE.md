@@ -48,8 +48,8 @@ AudioContext to the same rate avoids any resampling.
 |------|---------|
 | `app/main.py` | FastAPI app, all HTTP + WebSocket endpoints |
 | `app/modules/camera.py` | MediaPipe Holistic, returns JSON landmarks |
-| `app/modules/features.py` | Landmark extraction → flat numpy array (1657-dim) |
-| `app/modules/recorder.py` | Captures landmark frames during recording |
+| `app/modules/features.py` | Landmark extraction → centroid-normalized 1657-dim vector + `compute_deltas()` |
+| `app/modules/recorder.py` | Captures continuous landmark sequences (no keyframe shredding) |
 | `app/modules/trainer.py` | LSTM training on movement gesture CSV |
 | `app/modules/recognizer.py` | Sliding window LSTM inference (movement) |
 | `app/modules/face_trainer.py` | LSTM training on face landmarks only |
@@ -69,14 +69,44 @@ Right angles:cols 239–252   (14 joint angles)
 Face:        cols 253–1656  (468 landmarks × 3)
 ```
 Constants exported from `features.py`:
-- `FEATURE_SIZE = 1657`
+- `FEATURE_SIZE = 1657` (base vector stored in CSV)
+- `DELTA_FEATURE_SIZE = 253` (body-column deltas appended at training/inference)
+- `FULL_FEATURE_SIZE = 1910` (what the LSTM actually sees: 1657 + 253)
 - `FACE_COL_START = 253`, `FACE_COL_END = 1657`
 - `LEFT_ANGLE_COLS = np.arange(162, 176)`
 - `RIGHT_ANGLE_COLS = np.arange(239, 253)`
 
+### Centroid normalization
+All x,y coordinates are normalized by subtracting the mid-shoulder position
+(average of pose landmarks 11 and 12). This makes the model invariant to where
+the user stands in the camera frame. If pose is lost, the last known mid-shoulder
+is cached and reused to prevent coordinate jumps.
+
+### Delta features (velocity)
+`compute_deltas(sequence)` appends frame-to-frame differences for body columns
+(0–252) to each frame. The LSTM sees both position and velocity, making it easier
+to distinguish dynamic gestures (clap, wave) from static poses (idle).
+
+### Recording: continuous sequences
+Each recording is saved as one continuous sequence (single `seq_id`), truncated
+to `MAX_SEQUENCE_LENGTH = 60` frames (≈4s at 15fps). No keyframe shredding —
+the LSTM sees the full temporal flow of the gesture.
+
 **BREAKING CHANGE (2026-03-18):** Right hand added; FEATURE_SIZE changed 1580 → 1657.
 Any `movement_model.h5` or `face_model.h5` trained before this date must be deleted
 and retrained from scratch with new recordings.
+
+**BREAKING CHANGE (2026-03-22):** Audio features expanded from 43-dim (mean only) to
+121-dim (mean + max + std for MFCC/delta/delta2 + 4 spectral). Captures transient
+sounds (e.g. claps) that were previously washed out by mean-only averaging.
+Any `audio_model.h5`, `audio_scaler.pkl`, `audio_selector.pkl`, and
+`audio_gestures.csv` data must be deleted and re-recorded/retrained.
+
+**BREAKING CHANGE (2026-03-22, v2):** Full architectural reset — centroid normalization,
+delta features (velocity columns), continuous sequences (no keyframe shredding),
+fixed `MAX_SEQUENCE_LENGTH = 60`. LSTM input is now `(batch, 60, 1910)`.
+All `gestures.csv`, `movement_model.h5`, `face_model.h5` must be deleted and
+re-recorded/retrained from scratch.
 
 ## Data
 Per-user paths (feature/multi-user branch):
@@ -91,16 +121,20 @@ Legacy fallback paths (if no username supplied):
 - `data/gestures.csv`, `data/audio_gestures.csv`, `data/models/`
 
 ## Fusion approach
-Confidence-based heuristic (matches team notebook cell 42, no meta-learner):
+Confidence-based heuristic (no meta-learner):
 - `THETA_AUD = 0.90` — audio overrides everything if confidence ≥ threshold
-- `THETA_VIS = 0.85` — movement wins at this confidence, boosted/discounted by audio/face agreement
+- `THETA_VIS = 0.85` — movement wins at this confidence
+- `THETA_MIN = 0.20` — minimum confidence for any output (below = "no gesture")
 - `W_AGREE = 1.10`, `W_DISAGREE = 0.90` — agreement bonus / disagreement penalty
-- Endpoint: `GET /api/fusion/prediction`
+- Face is **modifier only** — never a primary candidate. Can boost winner ×1.05 if it agrees
+  (suppressed when hands are active via `HAND_VEL_THRESH = 0.02`)
+- Endpoint: `GET /api/fusion/prediction` — response includes `hand_active` boolean
 
 ## Audio pipeline
-- 43-dim MFCCs → StandardScaler → SelectKBest(k=14) → LSTM(64) → Dense(32,relu) → Dense(n,softmax)
+- 121-dim features (MFCC mean/max/std + delta mean/max/std + delta2 mean/max/std + 4 spectral)
+- → StandardScaler → SelectKBest(k=14) → LSTM(64) → Dense(32,relu) → Dense(n,softmax)
 - Scaler and selector saved alongside model and loaded during inference
-- Matches notebook cells 29/30 (feature selection) and cell 33 (architecture)
+- Max/std statistics added to capture transient sounds (claps, taps) that mean-only averaging missed
 
 ## Known constraints
 - Each gesture class needs **at least 2 recordings** before training (stratified split)
@@ -108,8 +142,8 @@ Confidence-based heuristic (matches team notebook cell 42, no meta-learner):
   from Python processes, so the browser captures and streams audio to the backend
 - MediaPipe is not thread-safe — a single ThreadPoolExecutor(max_workers=1) is
   used for all frame processing
-- The movement model uses keyframe detection (velocity/acceleration thresholds)
-  rather than raw frames — see `features.py` → `identify_keyframes()`
+- Movement recordings are saved as continuous sequences (max 60 frames ≈ 4s)
+- Delta features (velocity) are computed on-the-fly during training and inference
 
 ## Frontend notes
 - Single HTML file (`index.html`) — no build step, no npm, no framework
