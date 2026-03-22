@@ -16,5 +16,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 ENV PYTHONUNBUFFERED=1
+ENV TF_NUM_INTEROP_THREADS=1
+ENV TF_NUM_INTRAOP_THREADS=1
+ENV OMP_NUM_THREADS=1
 
 CMD ["python", "run.py"]
