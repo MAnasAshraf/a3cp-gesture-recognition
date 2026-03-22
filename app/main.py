@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import asyncio
@@ -10,6 +11,8 @@ import joblib
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+
+logger = logging.getLogger(__name__)
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -92,7 +95,10 @@ async def shutdown():
 
 @app.get("/")
 async def index():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    return FileResponse(
+        str(STATIC_DIR / "index.html"),
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 # ─── User management ──────────────────────────────────────────────────────────
@@ -169,6 +175,9 @@ async def import_legacy(username: str):
 async def landmarks_ws(websocket: WebSocket):
     """Receive landmark JSON from browser-side MediaPipe Tasks JS."""
     await websocket.accept()
+    logger.info("Landmark WS connected (mode=%s, callback=%s)",
+                processor.mode, processor.landmark_callback is not None)
+    frame_count = 0
     try:
         while True:
             raw = await websocket.receive_text()
@@ -176,10 +185,14 @@ async def landmarks_ws(websocket: WebSocket):
             lm = extract_landmarks_from_json(data)
             if lm is not None and processor.landmark_callback:
                 processor.landmark_callback(lm)
+                frame_count += 1
+                if frame_count % 30 == 1:
+                    logger.info("Landmark WS: %d frames dispatched (mode=%s)",
+                                frame_count, processor.mode)
     except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass
+        logger.info("Landmark WS closed (%d frames dispatched)", frame_count)
+    except Exception as e:
+        logger.warning("Landmark WS error: %s (%d frames dispatched)", e, frame_count)
 
 
 # ─── Data ─────────────────────────────────────────────────────────────────────
