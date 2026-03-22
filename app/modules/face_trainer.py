@@ -137,6 +137,11 @@ class FaceTrainingSession:
             self.message = f"Training complete! Test accuracy: {acc*100:.1f}%"
             self.logs.append(self.message)
 
+            # Free TF model from memory (important on Railway's limited RAM)
+            import tensorflow as tf
+            del model
+            tf.keras.backend.clear_session()
+
         except Exception as e:
             self.status  = "error"
             self.message = str(e)

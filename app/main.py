@@ -1003,6 +1003,30 @@ async def get_fusion_prediction():
     return {"movement": mv, "face": face, "audio": au, "fused": fused, "hand_active": hand_active}
 
 
+# ─── Model upload (for deploying pre-trained models to Railway) ──────────────
+
+ALLOWED_MODEL_FILES = {
+    "movement_model.h5", "label_encoder.pkl",
+    "face_model.h5", "face_label_encoder.pkl",
+    "audio_model.h5", "audio_label_encoder.pkl",
+    "audio_scaler.pkl", "audio_selector.pkl",
+}
+
+@app.post("/api/users/{username}/upload-model")
+async def upload_model(username: str, file: UploadFile = File(...)):
+    """Upload a pre-trained model file into a user's models directory."""
+    _validate_username(username)
+    if file.filename not in ALLOWED_MODEL_FILES:
+        raise HTTPException(400, f"Not an allowed model file. Allowed: {sorted(ALLOWED_MODEL_FILES)}")
+    p = _user_paths(username)
+    p["models_dir"].mkdir(parents=True, exist_ok=True)
+    dest = p["models_dir"] / file.filename
+    content = await file.read()
+    with open(dest, "wb") as f:
+        f.write(content)
+    return {"status": "ok", "file": file.filename, "size": len(content)}
+
+
 # ─── Config ───────────────────────────────────────────────────────────────────
 
 # Keys that take effect immediately (read at call time, not cached at startup)
