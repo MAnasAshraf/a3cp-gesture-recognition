@@ -13,6 +13,13 @@ cd /Users/ma3289/Downloads/A3CP/a3cp
 ```
 Then open http://localhost:8000 in the browser.
 
+## Railway deployment
+- Deploy using the included `Dockerfile`
+- `run.py` reads `PORT` from the environment, so Railway can assign the listen port
+- Mount a persistent volume at `/app/data` so recordings, CSVs, and trained models survive redeploys
+- `requirements.txt` uses `tensorflow==2.13.0` for Linux deployment targets; local macOS development can still use a separate virtualenv if needed
+- If Railway build/runtime issues occur around server-side video analysis, the likely hotspot is Python `mediapipe`, which is only used by the video upload analysis endpoints
+
 ## Python environment
 - Location: `/Users/ma3289/Downloads/A3CP/gesture_env/`
 - Python 3.11 (required — TF mutex crash on 3.9)

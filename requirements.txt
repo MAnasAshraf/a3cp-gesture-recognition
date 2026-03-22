@@ -6,7 +6,8 @@ mediapipe==0.10.9
 opencv-python==4.9.0.80
 
 # ML
-tensorflow-macos==2.13.0
+# Use the cross-platform package for Linux deployment targets like Railway.
+tensorflow==2.13.0
 numpy==1.24.3
 pandas>=2.0
 scikit-learn>=1.3
