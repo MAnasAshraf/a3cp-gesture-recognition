@@ -23,3 +23,8 @@ seaborn>=0.13
 fastapi>=0.115
 uvicorn>=0.20
 python-multipart>=0.0.6
+
+# Desktop window (optional — falls back to browser if not installed)
+# macOS/Windows: no extra system packages needed
+# Linux: apt install python3-gi gir1.2-webkit2-4.0
+pywebview>=4.4
