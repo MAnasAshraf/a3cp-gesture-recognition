@@ -18,22 +18,23 @@
 
   <style>
     :root {
-      --bg:        #FFFFFF;
-      --bg2:       #F4F6FB;
-      --bg3:       #E8EDF7;
+      --bg:        #F0EFE9;
+      --bg2:       #E8E7E0;
+      --bg3:       #DDDCD5;
       --card:      #FFFFFF;
-      --border:    #D0D8EE;
-      --text:      #060645;
-      --text2:     #3A4070;
-      --text3:     #6B7280;
-      --primary:   #1C46C0;
-      --primary2:  #060645;
+      --border:    #E2E1DA;
+      --text:      #1A1A18;
+      --text2:     #4A4A46;
+      --text3:     #8A8A86;
+      --primary:   #0F2D1A;
+      --primary2:  #071A0F;
       --emerald:   #059669;
       --red:       #DC2626;
       --yellow:    #D97706;
+      --teal:      #0D9488;
       --radius:    12px;
-      --shadow:    0 2px 12px rgba(6,6,69,0.10);
-      --sidebar-w: 260px;
+      --shadow:    0 2px 12px rgba(0,0,0,0.07);
+      --sidebar-w: 240px;
       --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
     }
 
@@ -56,52 +57,58 @@
     #sidebar {
       width: var(--sidebar-w);
       flex-shrink: 0;
-      background: #060645;
-      border-right: none;
+      background: #FFFFFF;
+      border-right: 1px solid var(--border);
       display: flex; flex-direction: column;
-      padding: 28px 0;
+      padding: 24px 0;
       position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
       transition: transform var(--transition);
-      box-shadow: 2px 0 16px rgba(6,6,69,0.15);
+      box-shadow: 1px 0 0 var(--border);
     }
 
     .sidebar-logo {
-      padding: 0 24px 32px;
-      display: flex; align-items: center; gap: 12px;
+      padding: 0 20px 24px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
     }
 
-    .logo-icon { display: none; }
+    .logo-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 9px;
+      background: var(--primary); font-size: 18px; flex-shrink: 0;
+    }
 
-    .logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
-    .logo-text span { color: rgba(255,255,255,0.7); }
+    .logo-text { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; color: var(--text); }
+    .logo-text span { font-size: 10px; font-weight: 500; color: var(--text3); display: block; letter-spacing: 0.5px; }
 
-    .nav-section { padding: 0 12px; flex: 1; }
+    .nav-section { padding: 0 10px; flex: 1; overflow-y: auto; }
     .nav-label {
       font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
-      color: rgba(255,255,255,0.4); padding: 0 12px 8px;
+      color: var(--text3); padding: 0 10px 6px; margin-top: 8px;
     }
 
     .nav-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 20px; border-radius: 8px; margin: 2px 12px;
-      cursor: pointer; color: rgba(255,255,255,0.75);
-      font-weight: 600; font-size: 0.9rem;
-      transition: all 0.2s; position: relative;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 8px; margin: 1px 0;
+      cursor: pointer; color: var(--text2);
+      font-weight: 600; font-size: 0.875rem;
+      transition: all 0.15s; position: relative;
       border: 1px solid transparent;
     }
 
-    .nav-item:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: transparent; }
+    .nav-item:hover { background: var(--bg); color: var(--text); }
 
-    .nav-item.active { background: #1C46C0; color: #fff; border-color: transparent; }
+    .nav-item.active { background: var(--primary); color: #fff; }
 
     .nav-item.active::before { display: none; }
 
-    .nav-icon { font-size: 18px; flex-shrink: 0; }
+    .nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
 
     .sidebar-status {
-      padding: 20px 24px 0;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      margin-top: 16px;
+      padding: 16px 20px 0;
+      border-top: 1px solid var(--border);
+      margin-top: 12px;
     }
 
     .status-dot {
@@ -117,7 +124,7 @@
       50%      { box-shadow: 0 0 0 6px rgba(5,150,105,0); }
     }
 
-    .status-text { font-size: 12px; color: rgba(255,255,255,0.6); }
+    .status-text { font-size: 12px; color: var(--text3); }
 
     /* ── Main content ── */
     #main {
@@ -131,14 +138,14 @@
     #topbar {
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 32px;
-      height: 64px;
-      border-bottom: 2px solid #060645;
-      background: #FFFFFF;
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
       position: sticky; top: 0; z-index: 50;
     }
 
     #topbar-title { font-size: 20px; font-weight: 700; color: var(--text); }
-    #topbar-subtitle { font-size: 13px; color: var(--text3); margin-top: 2px; }
+    #topbar-subtitle { font-size: 12px; color: var(--text3); margin-top: 1px; }
 
     .topbar-actions { display: flex; gap: 10px; }
 
@@ -161,7 +168,7 @@
     }
 
     .card:hover {
-      box-shadow: 0 4px 20px rgba(6,6,69,0.15);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10);
     }
 
     .card-header {
@@ -201,11 +208,11 @@
     .stat-card::after {
       content: '';
       position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, #1C46C0, #060645);
+      background: linear-gradient(90deg, var(--primary), var(--teal));
       opacity: 0; transition: opacity var(--transition);
     }
 
-    .stat-card:hover { box-shadow: 0 4px 20px rgba(6,6,69,0.15); }
+    .stat-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.10); }
     .stat-card:hover::after { opacity: 1; }
 
     .stat-icon {
@@ -214,8 +221,8 @@
       font-size: 22px; margin-bottom: 16px;
     }
 
-    .stat-icon.indigo { background: rgba(28,70,192,0.12); }
-    .stat-icon.cyan   { background: rgba(28,70,192,0.08); }
+    .stat-icon.indigo { background: rgba(15,45,26,0.10); }
+    .stat-icon.cyan   { background: rgba(15,45,26,0.07); }
     .stat-icon.emerald{ background: rgba(5,150,105,0.12); }
 
     .stat-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
@@ -231,24 +238,24 @@
     }
 
     .btn-primary {
-      background: #1C46C0;
+      background: var(--primary);
       color: white;
-      box-shadow: 0 4px 16px rgba(28,70,192,0.25);
+      box-shadow: 0 4px 16px rgba(15,45,26,0.20);
     }
     .btn-primary:hover {
-      background: #060645;
-      box-shadow: 0 8px 24px rgba(6,6,69,0.3);
+      background: var(--primary2);
+      box-shadow: 0 8px 24px rgba(15,45,26,0.30);
       transform: translateY(-1px);
     }
 
     .btn-gradient {
-      background: #1C46C0;
+      background: var(--primary);
       color: #fff;
       border: none;
       font-size: 15px; padding: 14px 28px;
     }
     .btn-gradient:hover {
-      background: #060645;
+      background: var(--primary2);
       transform: translateY(-2px);
     }
     .btn-gradient:active { transform: translateY(0); }
@@ -287,24 +294,24 @@
     .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; letter-spacing: 0.3px; }
     .form-input {
       width: 100%; padding: 13px 16px;
-      background: #fff; border: 1.5px solid #D0D8EE;
-      border-radius: 8px; color: #060645;
+      background: #fff; border: 1.5px solid var(--border);
+      border-radius: 8px; color: var(--text);
       font-family: inherit; font-size: 15px;
       transition: all var(--transition); outline: none;
     }
-    .form-input:focus { border-color: #1C46C0; background: #fff; box-shadow: 0 0 0 3px rgba(28,70,192,0.15); }
+    .form-input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(15,45,26,0.12); }
     .form-input::placeholder { color: var(--text3); }
 
     input[type="text"], input[type="number"], select {
       background: #fff;
-      border: 1.5px solid #D0D8EE;
-      color: #060645;
+      border: 1.5px solid var(--border);
+      color: var(--text);
       border-radius: 8px;
     }
     input:focus, select:focus {
-      border-color: #1C46C0;
+      border-color: var(--primary);
       outline: none;
-      box-shadow: 0 0 0 3px rgba(28,70,192,0.15);
+      box-shadow: 0 0 0 3px rgba(15,45,26,0.12);
     }
 
     input[type="range"] {
@@ -313,8 +320,8 @@
     }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
-      background: #1C46C0;
-      box-shadow: 0 2px 8px rgba(28,70,192,0.35);
+      background: var(--primary);
+      box-shadow: 0 2px 8px rgba(15,45,26,0.30);
       cursor: pointer;
     }
     input[type="range"]:focus { outline: none; }
@@ -327,7 +334,7 @@
 
     .progress-fill {
       height: 100%; border-radius: 4px;
-      background: linear-gradient(90deg, #1C46C0, #060645);
+      background: linear-gradient(90deg, var(--primary), var(--teal));
       transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
       position: relative;
     }
@@ -390,7 +397,7 @@
 
     /* ── Log console ── */
     .log-console {
-      background: #060645; border-radius: 8px;
+      background: #0D1F12; border-radius: 8px;
       padding: 16px;
       font-family: 'Courier New', monospace; font-size: 0.8rem;
       color: #66EEFA; max-height: 200px; overflow-y: auto;
@@ -407,7 +414,7 @@
     /* ── Webcam feed ── */
     .webcam-container {
       position: relative; border-radius: var(--radius); overflow: hidden;
-      background: #060645; border: 2px solid var(--border);
+      background: #0D1F12; border: 1px solid var(--border);
       aspect-ratio: 4/3;
     }
 
@@ -435,7 +442,7 @@
     }
 
     .gradient-text {
-      background: linear-gradient(135deg, #1C46C0, #060645);
+      background: linear-gradient(135deg, var(--primary), var(--teal));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
@@ -465,10 +472,10 @@
       text-align: center;
     }
     .quick-card:hover {
-      border-color: #1C46C0;
-      background: #F4F6FB;
+      border-color: var(--primary);
+      background: var(--bg);
       transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(28,70,192,0.15);
+      box-shadow: 0 8px 24px rgba(15,45,26,0.12);
     }
     .quick-icon { font-size: 36px; margin-bottom: 12px; }
     .quick-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
@@ -495,14 +502,14 @@
     }
     .conf-bar-fill {
       height: 100%; border-radius: 6px;
-      background: linear-gradient(90deg, #1C46C0, #060645);
+      background: linear-gradient(90deg, var(--primary), var(--teal));
       transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
     }
 
     /* ── Prediction display ── */
     .prediction-big {
       font-size: clamp(32px, 4vw, 52px); font-weight: 900; letter-spacing: -2px;
-      background: linear-gradient(135deg, #1C46C0, #060645);
+      background: linear-gradient(135deg, var(--primary), var(--teal));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
@@ -521,7 +528,7 @@
     /* ── Accuracy display ── */
     .accuracy-big {
       font-size: 72px; font-weight: 900; letter-spacing: -4px; line-height: 1;
-      background: linear-gradient(135deg, #1C46C0, #060645);
+      background: linear-gradient(135deg, var(--primary), var(--teal));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
@@ -538,7 +545,7 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #D0D8EE; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #1C46C0; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
     /* ── Notification toast ── */
     #toast {
@@ -612,18 +619,19 @@
   <!-- ══ Sidebar ══════════════════════════════════════════════════════════ -->
   <nav id="sidebar">
     <div class="sidebar-logo">
-      <div class="logo">
-        <span style="font-size:1.4rem;font-weight:700;color:#fff;letter-spacing:-0.5px;">a3cp</span>
-        <span style="font-size:0.65rem;color:rgba(255,255,255,0.6);display:block;margin-top:-2px;letter-spacing:0.5px;">THE OPEN UNIVERSITY</span>
+      <div class="logo-icon">🤚</div>
+      <div class="logo-text">
+        A3CP
+        <span>ASSISTIVE PLATFORM</span>
       </div>
     </div>
 
     <!-- Active profile indicator -->
-    <div style="padding:0 24px 18px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px;">
-      <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;">Active Profile</div>
+    <div style="padding:10px 20px 14px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;">Active Profile</div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span id="sidebar-username" style="font-size:14px;font-weight:700;color:#fff;">—</span>
-        <button onclick="showUserModal()" style="font-size:11px;color:rgba(255,255,255,0.55);background:none;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:3px 8px;cursor:pointer;">Switch</button>
+        <span id="sidebar-username" style="font-size:13px;font-weight:700;color:var(--text);">—</span>
+        <button onclick="showUserModal()" style="font-size:11px;color:var(--primary);background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-weight:600;">Switch</button>
       </div>
     </div>
 
@@ -633,15 +641,15 @@
       </div>
 
       <!-- Recording mode toggle -->
-      <div style="margin:8px 0 2px;">
-        <div style="font-size:10px;letter-spacing:0.8px;text-transform:uppercase;color:rgba(255,255,255,0.45);padding:0 8px;margin-bottom:6px;">Recording Mode</div>
-        <div style="display:flex;background:rgba(255,255,255,0.08);border-radius:8px;padding:3px;gap:2px;margin:0 8px;">
+      <div style="margin:8px 0 4px;">
+        <div style="font-size:10px;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);padding:0 4px;margin-bottom:6px;">Recording Mode</div>
+        <div style="display:flex;background:var(--bg2);border-radius:8px;padding:3px;gap:2px;">
           <button id="nav-mode-sim" onclick="setRecordingMode('simultaneous')"
-            style="flex:1;padding:5px 4px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:#1C46C0;color:#fff;transition:all 0.2s;">
+            style="flex:1;padding:5px 4px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:var(--primary);color:#fff;transition:all 0.2s;">
             ⚡ Simultaneous
           </button>
           <button id="nav-mode-sep" onclick="setRecordingMode('separate')"
-            style="flex:1;padding:5px 4px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:transparent;color:rgba(255,255,255,0.6);transition:all 0.2s;">
+            style="flex:1;padding:5px 4px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;background:transparent;color:var(--text3);transition:all 0.2s;">
             📋 Separate
           </button>
         </div>
@@ -656,32 +664,32 @@
 
       <!-- Separate group (hidden by default) -->
       <div id="nav-group-sep" style="display:none;">
-        <div class="nav-label" style="margin-top:12px;">Movement</div>
+        <div class="nav-label" style="margin-top:10px;">Movement</div>
         <div class="nav-item" onclick="loadPage('record')">
           <span class="nav-icon">⏺</span> Record
         </div>
         <div class="nav-item" onclick="loadPage('train')">
           <span class="nav-icon">⚙</span> Train
         </div>
-        <div class="nav-label" style="margin-top:12px;">Audio</div>
+        <div class="nav-label" style="margin-top:10px;">Audio</div>
         <div class="nav-item" onclick="loadPage('audio-record')">
           <span class="nav-icon">🎙</span> Audio Record
         </div>
         <div class="nav-item" onclick="loadPage('audio-train')">
           <span class="nav-icon">🔊</span> Audio Train
         </div>
-        <div class="nav-label" style="margin-top:12px;">Fusion</div>
+        <div class="nav-label" style="margin-top:10px;">Fusion</div>
         <div class="nav-item" onclick="loadPage('face-train')">
           <span class="nav-icon">😶</span> Face Train
         </div>
       </div>
 
-      <div class="nav-label" style="margin-top:12px;">Recognition</div>
+      <div class="nav-label" style="margin-top:10px;">Recognition</div>
       <div class="nav-item" onclick="loadPage('recognize')">
         <span class="nav-icon">◉</span> Recognize
       </div>
 
-      <div class="nav-label" style="margin-top:12px;">System</div>
+      <div class="nav-label" style="margin-top:10px;">System</div>
       <div class="nav-item" onclick="loadPage('settings')">
         <span class="nav-icon">⚙</span> Settings
       </div>
@@ -692,7 +700,7 @@
         <span class="status-dot" id="cam-status-dot"></span>
         <span class="status-text" id="cam-status-text">Camera active</span>
       </div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.4);">a3cp v1.0</div>
+      <div style="font-size:11px;color:var(--text3);">a3cp v1.0</div>
     </div>
   </nav>
 
@@ -709,9 +717,9 @@
         <div id="topbar-subtitle">Overview of your gesture recognition system</div>
       </div>
       <div class="topbar-actions">
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:#F4F6FB;border:1px solid #D0D8EE;border-radius:8px;font-size:13px;font-weight:600;color:#3A4070;">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--text2);">
           👤 <span id="topbar-user">—</span>
-          <button onclick="showUserModal()" style="background:none;border:none;cursor:pointer;font-size:11px;color:#1C46C0;text-decoration:underline;padding:0;">Switch</button>
+          <button onclick="showUserModal()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--primary);text-decoration:underline;padding:0;">Switch</button>
         </div>
         <button class="btn btn-ghost" onclick="refreshStats()" title="Refresh data">↺ Refresh</button>
       </div>
@@ -817,7 +825,7 @@
       <!-- Tab switcher -->
       <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:28px;">
         <button id="rec-tab-btn-live" onclick="switchRecTab('live')"
-          style="padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:#1C46C0;border-bottom:3px solid #1C46C0;margin-bottom:-2px;transition:all 0.2s;">
+          style="padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--primary);border-bottom:3px solid var(--primary);margin-bottom:-2px;transition:all 0.2s;">
           📷 Live Camera
         </button>
         <button id="rec-tab-btn-video" onclick="switchRecTab('video')"
@@ -861,7 +869,7 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Duration: <span id="rec-dur-val" style="color:#1C46C0;font-weight:700;">60s</span></label>
+                <label class="form-label">Duration: <span id="rec-dur-val" style="color:var(--primary);font-weight:700;">60s</span></label>
                 <input type="range" id="rec-duration" min="30" max="120" value="60" oninput="document.getElementById('rec-dur-val').textContent=this.value+'s'" />
                 <div style="display:flex;justify-content:space-between;margin-top:6px;">
                   <span class="text-sm text-muted">30s</span>
@@ -881,7 +889,7 @@
             <div class="card" id="rec-progress-card" style="padding:20px;display:none;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <span class="text-sm font-bold">Progress</span>
-                <span class="text-sm" id="rec-progress-pct" style="color:#1C46C0;">0%</span>
+                <span class="text-sm" id="rec-progress-pct" style="color:var(--primary);">0%</span>
               </div>
               <div class="progress-track">
                 <div class="progress-fill" id="rec-progress-bar" style="width:0%;"></div>
@@ -982,7 +990,7 @@
         <!-- Training config -->
         <div class="card" style="padding:24px;">
           <div class="form-group">
-            <label class="form-label">Epochs: <span id="train-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+            <label class="form-label">Epochs: <span id="train-epoch-val" style="color:var(--primary);font-weight:700;">50</span></label>
             <input type="range" id="train-epochs" min="10" max="100" value="50" oninput="document.getElementById('train-epoch-val').textContent=this.value" />
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
               <span class="text-sm text-muted">10</span>
@@ -1015,7 +1023,7 @@
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:8px;">
             <span class="text-sm text-muted" id="train-epoch-progress">Epoch 0</span>
-            <span class="text-sm" id="train-progress-pct" style="color:#1C46C0;">0%</span>
+            <span class="text-sm" id="train-progress-pct" style="color:var(--primary);">0%</span>
           </div>
         </div>
 
@@ -1087,7 +1095,7 @@
               <input type="text" id="jrec-gesture-name" class="form-input" placeholder="e.g. thank_you, yes, help" />
             </div>
             <div class="form-group">
-              <label class="form-label">Duration: <span id="jrec-dur-val" style="color:#1C46C0;font-weight:700;">15s</span></label>
+              <label class="form-label">Duration: <span id="jrec-dur-val" style="color:var(--primary);font-weight:700;">15s</span></label>
               <input type="range" id="jrec-duration" min="10" max="60" value="15" oninput="document.getElementById('jrec-dur-val').textContent=this.value+'s'" />
               <div style="display:flex;justify-content:space-between;margin-top:6px;">
                 <span class="text-sm text-muted">10s</span><span class="text-sm text-muted">60s</span>
@@ -1102,7 +1110,7 @@
             <div class="text-sm font-bold mb-3" style="letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);">Movement</div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <span class="text-sm">Landmark frames</span>
-              <span class="text-sm" id="jrec-mv-pct" style="color:#1C46C0;">0%</span>
+              <span class="text-sm" id="jrec-mv-pct" style="color:var(--primary);">0%</span>
             </div>
             <div class="progress-track"><div class="progress-fill" id="jrec-mv-bar" style="width:0%;"></div></div>
             <div id="jrec-mv-status" class="mt-2"><span class="badge badge-muted">Idle</span></div>
@@ -1113,7 +1121,7 @@
             <div class="text-sm font-bold mb-3" style="letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);">Audio</div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <span class="text-sm">MFCC frames</span>
-              <span class="text-sm" id="jrec-au-pct" style="color:#1C46C0;">0%</span>
+              <span class="text-sm" id="jrec-au-pct" style="color:var(--primary);">0%</span>
             </div>
             <div class="progress-track"><div class="progress-fill" id="jrec-au-bar" style="width:0%;background:#059669;"></div></div>
             <div id="jrec-au-status" class="mt-2"><span class="badge badge-muted">Idle</span></div>
@@ -1143,7 +1151,7 @@
         <div class="grid-2" style="max-width:900px;">
           <div class="card" style="padding:24px;">
             <div class="form-group">
-              <label class="form-label">Epochs: <span id="jtrain-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+              <label class="form-label">Epochs: <span id="jtrain-epoch-val" style="color:var(--primary);font-weight:700;">50</span></label>
               <input type="range" id="jtrain-epochs" min="10" max="100" value="50" oninput="document.getElementById('jtrain-epoch-val').textContent=this.value" />
               <div style="display:flex;justify-content:space-between;margin-top:6px;">
                 <span class="text-sm text-muted">10</span><span class="text-sm text-muted">100</span>
@@ -1189,7 +1197,7 @@
               <input type="text" id="arec-gesture-name" class="form-input" placeholder="e.g. yes, no, dad, clap" />
             </div>
             <div class="form-group">
-              <label class="form-label">Duration: <span id="arec-dur-val" style="color:#1C46C0;font-weight:700;">10s</span></label>
+              <label class="form-label">Duration: <span id="arec-dur-val" style="color:var(--primary);font-weight:700;">10s</span></label>
               <input type="range" id="arec-duration" min="5" max="60" value="10" oninput="document.getElementById('arec-dur-val').textContent=this.value+'s'" />
               <div style="display:flex;justify-content:space-between;margin-top:6px;">
                 <span class="text-sm text-muted">5s</span><span class="text-sm text-muted">60s</span>
@@ -1201,7 +1209,7 @@
           <div class="card" id="arec-progress-card" style="padding:20px;display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
               <span class="text-sm font-bold">Progress</span>
-              <span class="text-sm" id="arec-progress-pct" style="color:#1C46C0;">0%</span>
+              <span class="text-sm" id="arec-progress-pct" style="color:var(--primary);">0%</span>
             </div>
             <div class="progress-track"><div class="progress-fill" id="arec-progress-bar" style="width:0%;"></div></div>
           </div>
@@ -1253,7 +1261,7 @@
         </div>
         <div class="card" style="padding:24px;">
           <div class="form-group">
-            <label class="form-label">Epochs: <span id="atrain-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+            <label class="form-label">Epochs: <span id="atrain-epoch-val" style="color:var(--primary);font-weight:700;">50</span></label>
             <input type="range" id="atrain-epochs" min="10" max="100" value="50" oninput="document.getElementById('atrain-epoch-val').textContent=this.value" />
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
               <span class="text-sm text-muted">10</span><span class="text-sm text-muted">100</span>
@@ -1273,7 +1281,7 @@
           <div class="progress-track" style="height:12px;"><div class="progress-fill" id="atrain-progress-bar" style="width:0%;"></div></div>
           <div style="display:flex;justify-content:space-between;margin-top:8px;">
             <span class="text-sm text-muted" id="atrain-epoch-progress">Epoch 0</span>
-            <span class="text-sm" id="atrain-progress-pct" style="color:#1C46C0;">0%</span>
+            <span class="text-sm" id="atrain-progress-pct" style="color:var(--primary);">0%</span>
           </div>
         </div>
         <div class="grid-2 mb-6">
@@ -1302,7 +1310,7 @@
       <div class="grid-2 mb-6">
         <div class="card" style="padding:24px;">
           <div class="form-group">
-            <label class="form-label">Epochs: <span id="ftrain-epoch-val" style="color:#1C46C0;font-weight:700;">50</span></label>
+            <label class="form-label">Epochs: <span id="ftrain-epoch-val" style="color:var(--primary);font-weight:700;">50</span></label>
             <input type="range" id="ftrain-epochs" min="10" max="100" value="50" oninput="document.getElementById('ftrain-epoch-val').textContent=this.value" />
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
               <span class="text-sm text-muted">10</span><span class="text-sm text-muted">100</span>
@@ -1330,7 +1338,7 @@
           <div class="progress-track" style="height:12px;"><div class="progress-fill" id="ftrain-progress-bar" style="width:0%;"></div></div>
           <div style="display:flex;justify-content:space-between;margin-top:8px;">
             <span class="text-sm text-muted" id="ftrain-epoch-progress">Epoch 0</span>
-            <span class="text-sm" id="ftrain-progress-pct" style="color:#1C46C0;">0%</span>
+            <span class="text-sm" id="ftrain-progress-pct" style="color:var(--primary);">0%</span>
           </div>
         </div>
         <div class="grid-2 mb-6">
@@ -1365,7 +1373,7 @@
 
           <div class="card" style="padding:40px;cursor:pointer;text-align:center;border:2px solid transparent;transition:border-color 0.2s;"
                onclick="showRecLive()"
-               onmouseover="this.style.borderColor='#1C46C0'"
+               onmouseover="this.style.borderColor='var(--primary)'"
                onmouseout="this.style.borderColor='transparent'">
             <div style="font-size:52px;margin-bottom:18px;">📹</div>
             <div style="font-size:20px;font-weight:700;margin-bottom:10px;color:var(--text);">Live Recognition</div>
@@ -1375,7 +1383,7 @@
 
           <div class="card" style="padding:40px;cursor:pointer;text-align:center;border:2px solid transparent;transition:border-color 0.2s;"
                onclick="showRecVideo()"
-               onmouseover="this.style.borderColor='#1C46C0'"
+               onmouseover="this.style.borderColor='var(--primary)'"
                onmouseout="this.style.borderColor='transparent'">
             <div style="font-size:52px;margin-bottom:18px;">🎬</div>
             <div style="font-size:20px;font-weight:700;margin-bottom:10px;color:var(--text);">Video Analysis</div>
@@ -1419,7 +1427,7 @@
           <div style="display:flex;flex-direction:column;gap:16px;">
 
             <!-- Fused result -->
-            <div class="card" id="inf-fused-card" style="padding:28px;border:2px solid #1C46C0;">
+            <div class="card" id="inf-fused-card" style="padding:28px;border:2px solid var(--primary);">
               <div class="text-sm text-muted mb-3" style="letter-spacing:1px;text-transform:uppercase;font-weight:700;">Fused Prediction</div>
               <!-- Idle state -->
               <div id="inf-idle-state" style="display:none;text-align:center;padding:8px 0 4px;">
@@ -1433,7 +1441,7 @@
                 <div style="margin-top:16px;">
                   <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
                     <span class="text-sm text-secondary">Confidence</span>
-                    <span class="text-sm font-bold" id="inf-conf-text" style="color:#1C46C0;">0%</span>
+                    <span class="text-sm font-bold" id="inf-conf-text" style="color:var(--primary);">0%</span>
                   </div>
                   <div class="conf-bar-track"><div class="conf-bar-fill" id="inf-conf-bar" style="width:0%;"></div></div>
                 </div>
@@ -1471,7 +1479,7 @@
               </div>
               <!-- Threshold reference -->
               <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-                <span style="font-size:11px;background:#EEF2FF;color:#1C46C0;padding:3px 8px;border-radius:12px;font-weight:600;">Audio override ≥ 90%</span>
+                <span style="font-size:11px;background:rgba(15,45,26,0.08);color:var(--primary);padding:3px 8px;border-radius:12px;font-weight:600;">Audio override ≥ 90%</span>
                 <span style="font-size:11px;background:#F0FDF4;color:#166534;padding:3px 8px;border-radius:12px;font-weight:600;">Movement primary ≥ 85%</span>
                 <span style="font-size:11px;background:#FFF7ED;color:#92400E;padding:3px 8px;border-radius:12px;font-weight:600;">Low confidence → discounted ×0.9</span>
               </div>
@@ -1700,9 +1708,9 @@
 <div id="toast"></div>
 
 <!-- ══ User Profile Modal ════════════════════════════════════════════════════ -->
-<div id="user-modal" style="position:fixed;inset:0;background:rgba(6,6,69,0.6);backdrop-filter:blur(6px);z-index:2000;display:flex;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:16px;padding:40px;width:440px;max-width:calc(100vw - 32px);box-shadow:0 24px 64px rgba(6,6,69,0.3);">
-    <div style="font-size:22px;font-weight:800;color:#060645;margin-bottom:6px;">Select Profile</div>
+<div id="user-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);z-index:2000;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:40px;width:440px;max-width:calc(100vw - 32px);box-shadow:0 24px 64px rgba(0,0,0,0.20);">
+    <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:6px;">Select Profile</div>
     <div style="font-size:14px;color:#6B7280;margin-bottom:24px;">Each profile has its own gesture data and trained models.</div>
 
     <div id="user-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-bottom:20px;">
@@ -1882,10 +1890,10 @@ function switchRecTab(tab) {
 
   const btnLive  = document.getElementById('rec-tab-btn-live');
   const btnVideo = document.getElementById('rec-tab-btn-video');
-  btnLive.style.color        = isLive ? '#1C46C0' : 'var(--text3)';
-  btnLive.style.borderBottom = isLive ? '3px solid #1C46C0' : '3px solid transparent';
-  btnVideo.style.color        = isLive ? 'var(--text3)' : '#1C46C0';
-  btnVideo.style.borderBottom = isLive ? '3px solid transparent' : '3px solid #1C46C0';
+  btnLive.style.color        = isLive ? 'var(--primary)' : 'var(--text3)';
+  btnLive.style.borderBottom = isLive ? '3px solid var(--primary)' : '3px solid transparent';
+  btnVideo.style.color        = isLive ? 'var(--text3)' : 'var(--primary)';
+  btnVideo.style.borderBottom = isLive ? '3px solid transparent' : '3px solid var(--primary)';
 
   if (isLive) startCamera();
   else stopCamera();
@@ -1930,7 +1938,7 @@ async function trainFromVideo() {
     document.getElementById('rec-vid-result').innerHTML = `
       <div style="padding:8px 0;">
         <div style="font-size:13px;color:var(--text3);margin-bottom:6px;">Gesture</div>
-        <div style="font-size:22px;font-weight:800;color:#1C46C0;margin-bottom:16px;">${esc(data.gesture)}</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:16px;">${esc(data.gesture)}</div>
         <div class="grid-2" style="gap:12px;margin-bottom:16px;">
           <div style="background:#F4F6FB;border-radius:8px;padding:14px;text-align:center;">
             <div style="font-size:28px;font-weight:900;">${data.sequences}</div>
@@ -2072,7 +2080,7 @@ function updateTrainTable(data) {
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="badge badge-blue">${cnt}</span>
           <div style="flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
-            <div style="width:${bar}%;height:100%;background:linear-gradient(90deg,#1C46C0,#060645);border-radius:3px;"></div>
+            <div style="width:${bar}%;height:100%;background:linear-gradient(90deg,var(--primary),var(--teal));border-radius:3px;"></div>
           </div>
         </div>
       </td>
@@ -2463,7 +2471,7 @@ function updateAudioTrainTable(data) {
       <td><div style="display:flex;align-items:center;gap:10px;">
         <span class="badge badge-blue">${cnt}</span>
         <div style="flex:1;height:6px;background:#E8EDF7;border-radius:3px;overflow:hidden;">
-          <div style="width:${bar}%;height:100%;background:linear-gradient(90deg,#1C46C0,#060645);border-radius:3px;"></div>
+          <div style="width:${bar}%;height:100%;background:linear-gradient(90deg,var(--primary),var(--teal));border-radius:3px;"></div>
         </div>
       </div></td>
     </tr>`;
@@ -2639,9 +2647,9 @@ function setRecordingMode(mode) {
   const isSim = mode === 'simultaneous';
   document.getElementById('nav-group-sim').style.display = isSim ? '' : 'none';
   document.getElementById('nav-group-sep').style.display = isSim ? 'none' : '';
-  document.getElementById('nav-mode-sim').style.background = isSim ? '#1C46C0' : 'transparent';
+  document.getElementById('nav-mode-sim').style.background = isSim ? 'var(--primary)' : 'transparent';
   document.getElementById('nav-mode-sim').style.color      = isSim ? '#fff' : 'rgba(255,255,255,0.6)';
-  document.getElementById('nav-mode-sep').style.background = isSim ? 'transparent' : '#1C46C0';
+  document.getElementById('nav-mode-sep').style.background = isSim ? 'transparent' : 'var(--primary)';
   document.getElementById('nav-mode-sep').style.color      = isSim ? 'rgba(255,255,255,0.6)' : '#fff';
   if (isSim) loadPage('joint-record');
 }
@@ -2986,7 +2994,7 @@ async function pollPrediction() {
     const isIdle = stableCls === '—';
     document.getElementById('inf-idle-state').style.display  = isIdle ? '' : 'none';
     document.getElementById('inf-active-state').style.display = isIdle ? 'none' : '';
-    document.getElementById('inf-fused-card').style.borderColor = isIdle ? 'rgba(100,100,120,0.3)' : '#1C46C0';
+    document.getElementById('inf-fused-card').style.borderColor = isIdle ? 'var(--border)' : 'var(--primary)';
     if (!isIdle) {
       document.getElementById('inf-class').textContent = stableCls;
       document.getElementById('inf-conf-bar').style.width = fuPct + '%';
@@ -3004,7 +3012,7 @@ async function pollPrediction() {
     // ── Fusion decision panel ─────────────────────────────────────────────
     const rule = fu.rule || 'no_signal';
     const ruleIcons = { audio_override: '🎙', movement_primary: '👁', low_confidence: '⚠', no_signal: '🤚' };
-    const ruleColors = { audio_override: '#1C46C0', movement_primary: '#166534', low_confidence: '#92400E', no_signal: '#6B7280' };
+    const ruleColors = { audio_override: 'var(--teal)', movement_primary: '#166534', low_confidence: '#92400E', no_signal: '#6B7280' };
     document.getElementById('inf-rule-icon').textContent  = ruleIcons[rule] || '—';
     document.getElementById('inf-rule-label').textContent = fu.rule_label || 'Waiting…';
     document.getElementById('inf-rule-label').style.color = ruleColors[rule] || 'var(--text)';
@@ -3482,7 +3490,7 @@ function renderVideoResults(data) {
     </div>
     <div style="margin-bottom:12px;">
       <div style="font-size:13px;color:var(--text3);margin-bottom:4px;">Dominant Gesture</div>
-      <div style="font-size:28px;font-weight:900;background:linear-gradient(135deg,#1C46C0,#060645);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${esc(data.dominant)}</div>
+      <div style="font-size:28px;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${esc(data.dominant)}</div>
     </div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:8px;">All Detections</div>
     ${summaryHtml}`;
@@ -3494,9 +3502,9 @@ function renderVideoResults(data) {
       <span style="font-size:12px;color:var(--text3);width:52px;flex-shrink:0;">${p.time}s</span>
       <span style="font-weight:600;flex:1;">${esc(p.class)}</span>
       <div style="width:80px;height:6px;background:#E8EDF7;border-radius:3px;overflow:hidden;">
-        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#1C46C0,#060645);border-radius:3px;"></div>
+        <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--primary),var(--teal));border-radius:3px;"></div>
       </div>
-      <span style="font-size:12px;color:#1C46C0;font-weight:700;width:36px;text-align:right;">${pct}%</span>
+      <span style="font-size:12px;color:var(--primary);font-weight:700;width:36px;text-align:right;">${pct}%</span>
     </div>`;
   }).join('');
 
@@ -3522,10 +3530,10 @@ async function showUserModal() {
     } else {
       listEl.innerHTML = data.users.map(u =>
         `<button onclick="selectUser('${esc(u)}')"
-          style="width:100%;text-align:left;padding:12px 16px;background:#F4F6FB;border:1.5px solid ${u===activeUser?'#1C46C0':'#D0D8EE'};border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;color:#060645;transition:all 0.15s;"
-          onmouseover="this.style.background='#DBEAFE';this.style.borderColor='#1C46C0'"
-          onmouseout="this.style.background='${u===activeUser?'#DBEAFE':'#F4F6FB'}';this.style.borderColor='${u===activeUser?'#1C46C0':'#D0D8EE'}'">
-          👤 ${esc(u)} ${u===activeUser?'<span style="float:right;font-size:11px;color:#1C46C0;">Active</span>':''}
+          style="width:100%;text-align:left;padding:12px 16px;background:var(--bg);border:1.5px solid ${u===activeUser?'var(--primary)':'var(--border)'};border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text);transition:all 0.15s;"
+          onmouseover="this.style.background='var(--bg2)';this.style.borderColor='var(--primary)'"
+          onmouseout="this.style.background='var(--bg)';this.style.borderColor='${u===activeUser?'var(--primary)':'var(--border)'}'">
+          👤 ${esc(u)} ${u===activeUser?'<span style="float:right;font-size:11px;color:var(--primary);">Active</span>':''}
         </button>`
       ).join('');
     }
