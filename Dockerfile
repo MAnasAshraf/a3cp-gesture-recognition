@@ -15,9 +15,16 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY . .
 
+# Create data directories and make them writable for HF Spaces (runs as uid 1000)
+RUN mkdir -p /app/data/users /app/data/models && \
+    chmod -R 777 /app/data
+
 ENV PYTHONUNBUFFERED=1
 ENV TF_NUM_INTEROP_THREADS=1
 ENV TF_NUM_INTRAOP_THREADS=1
 ENV OMP_NUM_THREADS=1
+ENV PORT=7860
+
+EXPOSE 7860
 
 CMD ["python", "run.py"]
